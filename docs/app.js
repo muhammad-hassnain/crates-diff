@@ -663,12 +663,194 @@ function renderGithub(g) {
   return out;
 }
 
-/* ---------------- notes (localStorage) ---------------- */
+/* ============================================================= *
+ *  AUTH — Sign in with GitHub (OAuth via the Worker)
+ * ============================================================= */
+const USER_TOKEN_KEY = "crates_diff_user_token";
+const authState = { token: null, user: null };
+
+function notesEnabled() { return !!(window.GH_OAUTH_CLIENT_ID && window.NOTES_REPO && (window.GH_PROXY || "").trim()); }
+function getUserToken() { try { return localStorage.getItem(USER_TOKEN_KEY) || null; } catch (_) { return null; } }
+function setUserToken(t) { try { localStorage.setItem(USER_TOKEN_KEY, t); } catch (_) {} authState.token = t; }
+function clearUserToken() { try { localStorage.removeItem(USER_TOKEN_KEY); } catch (_) {} authState.token = null; authState.user = null; }
+
+function login() {
+  const cid = window.GH_OAUTH_CLIENT_ID;
+  const redirect = location.origin + location.pathname;   // must match the OAuth app's callback URL
+  const state = encodeURIComponent(location.hash || "#/");
+  location.href = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(cid)}&scope=public_repo&redirect_uri=${encodeURIComponent(redirect)}&state=${state}`;
+}
+function logout() { clearUserToken(); renderAuth(); if (parseRoute().name === "compare") loadNotes(); }
+
+// If we came back from GitHub with ?code=..., exchange it for a token via the Worker.
+async function handleOAuthCallback() {
+  const params = new URLSearchParams(location.search);
+  const code = params.get("code");
+  if (!code) return;
+  const state = params.get("state") || "#/";
+  const proxy = (window.GH_PROXY || "").trim().replace(/\/$/, "");
+  try {
+    const r = await fetch(`${proxy}/oauth/token?code=${encodeURIComponent(code)}`);
+    const d = await r.json();
+    if (d.access_token) setUserToken(d.access_token);
+  } catch (_) {}
+  // Drop the ?code=... and restore the route we were on.
+  history.replaceState(null, "", location.origin + location.pathname + (decodeURIComponent(state) || "#/"));
+}
+
+async function loadUser() {
+  authState.token = getUserToken();
+  if (!authState.token) { authState.user = null; return; }
+  try {
+    const r = await fetch(`${GH_API}/user`, { headers: { Authorization: "Bearer " + authState.token, Accept: "application/vnd.github+json" } });
+    if (r.status === 401) { clearUserToken(); return; }
+    const u = await r.json();
+    authState.user = { login: u.login, avatar: u.avatar_url, html_url: u.html_url };
+  } catch (_) { authState.user = null; }
+}
+
+function renderAuth() {
+  const slot = document.getElementById("auth-slot");
+  if (!slot) return;
+  if (!notesEnabled()) { slot.innerHTML = ""; return; }
+  if (authState.user) {
+    slot.innerHTML = `<span class="auth-user"><img src="${esc(authState.user.avatar)}" alt="" width="20" height="20"><span>${esc(authState.user.login)}</span><a href="#" id="logout">sign out</a></span>`;
+    const lo = document.getElementById("logout");
+    if (lo) lo.onclick = (e) => { e.preventDefault(); logout(); };
+  } else {
+    slot.innerHTML = `<a href="#" id="login" class="signin">Sign in with GitHub</a>`;
+    const li = document.getElementById("login");
+    if (li) li.onclick = (e) => { e.preventDefault(); login(); };
+  }
+}
+
+// GitHub API call for notes. Uses the visitor's token when signed in (needed for
+// writes, and raises read limits); reads work unauthenticated on a public repo too.
+async function notesApi(path, opts = {}) {
+  const headers = Object.assign({ Accept: "application/vnd.github+json" }, opts.headers || {});
+  if (authState.token) headers.Authorization = "Bearer " + authState.token;
+  if (opts.body) headers["Content-Type"] = "application/json";
+  const r = await fetch(`${GH_API}${path}`, { method: opts.method || "GET", headers, body: opts.body });
+  const text = await r.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch (_) {}
+  if (!r.ok) throw new Error((data && data.message) || `HTTP ${r.status}`);
+  return data;
+}
+
+/* ============================================================= *
+ *  ISSUE-BACKED NOTES (shared, attributed)
+ *  crate note   -> issue titled  crate:<name>
+ *  transition   -> issue titled  diff:<name>@<from>..<to>
+ *  each note is a comment on that issue.
+ * ============================================================= */
+const issueMap = new Map(); // key -> issue number (session cache)
+
+async function findIssueNumber(key) {
+  if (issueMap.has(key)) return issueMap.get(key);
+  const q = encodeURIComponent(`repo:${window.NOTES_REPO} in:title "${key}"`);
+  const res = await notesApi(`/search/issues?q=${q}&per_page=20`);
+  const hit = (res.items || []).find((i) => i.title === key);
+  const num = hit ? hit.number : null;
+  if (num != null) issueMap.set(key, num);
+  return num;
+}
+async function ensureIssue(key) {
+  let num = await findIssueNumber(key);
+  if (num != null) return num;
+  const created = await notesApi(`/repos/${window.NOTES_REPO}/issues`, {
+    method: "POST",
+    body: JSON.stringify({ title: key, body: `Notes thread for \`${key}\`, managed by crates_diff.`, labels: ["note"] }),
+  });
+  issueMap.set(key, created.number);
+  return created.number;
+}
+async function loadComments(key) {
+  const num = await findIssueNumber(key);
+  if (num == null) return [];
+  const arr = await notesApi(`/repos/${window.NOTES_REPO}/issues/${num}/comments?per_page=100`);
+  return (arr || []).map((c) => ({ id: c.id, body: c.body, login: c.user && c.user.login, avatar: c.user && c.user.avatar_url, url: c.html_url, date: c.created_at }));
+}
+async function postComment(key, text) {
+  const num = await ensureIssue(key);
+  await notesApi(`/repos/${window.NOTES_REPO}/issues/${num}/comments`, { method: "POST", body: JSON.stringify({ body: text }) });
+}
+
+function relDate(iso) {
+  const d = new Date(iso); if (isNaN(d)) return "";
+  const s = Math.floor((Date.now() - d) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  if (s < 2592000) return Math.floor(s / 86400) + "d ago";
+  return d.toISOString().slice(0, 10);
+}
+function noteText(body) { return esc(body).replace(/\n/g, "<br>"); }
+
+function threadHtml(id, label, key) {
+  return `<div class="thread" data-key="${esc(key)}" id="${id}">
+    <div class="thread-title">${label}</div>
+    <div class="thread-list"><div class="spinner">loading notes…</div></div>
+    <div class="composer"></div>
+  </div>`;
+}
+
+async function renderThread(id, key) {
+  const root = document.getElementById(id);
+  if (!root) return;
+  const list = $(".thread-list", root), composer = $(".composer", root);
+  // composer
+  if (!authState.token) {
+    composer.innerHTML = `<button class="primary" data-act="login">Sign in with GitHub to add a note</button>`;
+    const b = $('[data-act="login"]', composer); if (b) b.onclick = login;
+  } else {
+    composer.innerHTML = `<textarea rows="3" placeholder="add a note…"></textarea><div class="composer-row"><span class="as muted">as <b>${esc(authState.user ? authState.user.login : "you")}</b></span><button class="primary" data-act="post">Post note</button></div><div class="composer-status muted"></div>`;
+    const btn = $('[data-act="post"]', composer), ta = $("textarea", composer), st = $(".composer-status", composer);
+    btn.onclick = async () => {
+      const text = ta.value.trim(); if (!text) return;
+      btn.disabled = true; st.textContent = "posting…";
+      try { await postComment(key, text); ta.value = ""; st.textContent = ""; await renderThread(id, key); }
+      catch (e) { st.textContent = "error: " + e.message; btn.disabled = false; }
+    };
+  }
+  // list
+  try {
+    const notes = await loadComments(key);
+    if (!notes.length) { list.innerHTML = '<div class="muted" style="font-size:13px">No notes yet.</div>'; return; }
+    list.innerHTML = notes.map((n) => `<div class="note">
+      <img class="note-av" src="${esc(n.avatar)}" alt="" width="24" height="24">
+      <div class="note-main">
+        <div class="note-head"><a href="https://github.com/${esc(n.login)}" target="_blank" rel="noopener"><b>${esc(n.login)}</b></a> <a href="${esc(n.url)}" target="_blank" rel="noopener" class="muted">${esc(relDate(n.date))}</a></div>
+        <div class="note-body">${noteText(n.body)}</div>
+      </div></div>`).join("");
+  } catch (e) {
+    list.innerHTML = `<div class="empty">couldn't load notes: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderIssueNotes() {
+  const crateKey = `crate:${cmp.crate}`;
+  const transKey = `diff:${cmp.crate}@${cmp.from}..${cmp.to}`;
+  setPane("notes", `<div class="notes-wrap">
+    ${threadHtml("thread-crate", `Notes on <b>${esc(cmp.crate)}</b>`, crateKey)}
+    ${threadHtml("thread-trans", `Notes on <b>${esc(cmp.from)} → ${esc(cmp.to)}</b>`, transKey)}
+    <div class="muted" style="font-size:12px;padding:0 16px 16px">Notes are public GitHub issue comments in <a href="https://github.com/${esc(window.NOTES_REPO)}" target="_blank" rel="noopener">${esc(window.NOTES_REPO)}</a>.</div>
+  </div>`);
+  renderThread("thread-crate", crateKey);
+  renderThread("thread-trans", transKey);
+}
+
+/* ---------------- notes dispatcher ---------------- */
+function loadNotes() {
+  if (notesEnabled()) return renderIssueNotes();
+  return renderLocalNotes();
+}
+
+/* ---------------- notes (localStorage fallback) ---------------- */
 const NOTES_KEY = "crates_diff_notes";
 let noteTimer = null;
 function readNotes() { try { return JSON.parse(localStorage.getItem(NOTES_KEY) || "{}") || {}; } catch (_) { return {}; } }
 function writeNotes(o) { try { localStorage.setItem(NOTES_KEY, JSON.stringify(o)); return true; } catch (_) { return false; } }
-function loadNotes() {
+function renderLocalNotes() {
   const notes = readNotes();
   const crateKey = cmp.crate, transKey = `${cmp.crate}@${cmp.from}..${cmp.to}`;
   let html = `<div class="note-block">`;
@@ -718,5 +900,11 @@ function renderAbout() {
 }
 
 /* ---------------- boot ---------------- */
-window.addEventListener("hashchange", route);
-route();
+async function boot() {
+  await handleOAuthCallback();   // turns ?code=... into a stored token, restores the hash
+  await loadUser();              // resolves the signed-in identity (if any)
+  renderAuth();
+  window.addEventListener("hashchange", route);
+  route();
+}
+boot();

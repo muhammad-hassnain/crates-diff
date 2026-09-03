@@ -1,41 +1,63 @@
-# crates_diff — GitHub API proxy (Cloudflare Worker)
+# crates_diff — Cloudflare Worker backend
 
-A tiny serverless proxy that holds a GitHub token **server-side** so the static site's
-**History** tab isn't capped at the unauthenticated 60 requests/hour limit — without
-ever shipping the token to the browser.
+One tiny Worker, two jobs, both keeping secrets off the static site:
 
-It forwards only two read endpoints (`/repos/:o/:r/tags` and
-`/repos/:o/:r/compare/...`) to `api.github.com`, adding the token, and returns the JSON
-with CORS restricted to the origins listed in `src/index.js`.
+1. **Sign in with GitHub** — `GET /oauth/token?code=…` exchanges a GitHub OAuth
+   `code` for the visitor's access token, using the OAuth app's **client secret**
+   (held here, never in the browser). This powers shared, attributed **Notes**:
+   each note is an issue comment posted *as the signed-in visitor* in the notes repo.
+2. **History-tab proxy** (optional) — `GET /repos/:o/:r/tags` and
+   `/repos/:o/:r/compare/…` forwarded to GitHub with an optional `GITHUB_TOKEN`, so
+   the History tab isn't capped at 60 requests/hour.
 
-## Deploy (one time, ~5 minutes)
+CORS is restricted to the origins in `src/index.js` — add yours if it differs.
 
-You run these — they need **your** Cloudflare login and **your** GitHub token, which
-must never pass through anyone else's hands.
+## Setup
 
-1. **Cloudflare account:** sign up (free) at <https://dash.cloudflare.com>.
-2. **GitHub token:** create one at <https://github.com/settings/tokens> — a *classic*
-   token with the **`public_repo`** scope is enough (read-only access to public repos).
-3. From this `worker/` folder:
-   ```bash
-   npx wrangler login                 # opens the browser to authorize
-   npx wrangler deploy                # deploys the Worker, prints its URL
-   npx wrangler secret put GITHUB_TOKEN   # paste your token when prompted
-   ```
-   The deploy prints a URL like
-   `https://crates-diff-gh-proxy.<your-subdomain>.workers.dev`.
-4. **Point the site at it:** put that URL in [`../docs/config.js`](../docs/config.js):
-   ```js
-   window.GH_PROXY = "https://crates-diff-gh-proxy.<your-subdomain>.workers.dev";
-   ```
-   Commit and push — GitHub Pages redeploys, and the History tab now uses your token.
+You run these — they need **your** accounts and secrets, which must never pass
+through anyone else's hands.
 
-## Notes
+### 1. Notes repo
+Already created: **`muhammad-hassnain/crates-diff-notes`** (public, issues on). Notes
+are stored there as issues (one per crate / per version-transition) with comments.
 
-- **Leaving `GH_PROXY` empty** (the default) keeps everything working — the site just
-  calls GitHub directly, unauthenticated (60/hr). The proxy is purely an upgrade.
-- `ALLOWED_ORIGINS` in `src/index.js` limits which sites' browsers may use your proxy.
-  Add your Pages origin there if it isn't already listed.
-- The token stays a Cloudflare **secret** — it's not in this repo and not in the
-  deployed JavaScript.
-- Free tier is 100,000 requests/day, far more than this needs.
+### 2. GitHub OAuth App
+At <https://github.com/settings/developers> → **New OAuth App**:
+- **Homepage URL:** `https://muhammad-hassnain.github.io/crates-diff/`
+- **Authorization callback URL:** `https://muhammad-hassnain.github.io/crates-diff/`
+  (exactly the site URL — the app strips the `?code=` itself)
+
+Copy the **Client ID** and generate a **Client secret**.
+
+### 3. Deploy the Worker + set secrets
+From this `worker/` folder:
+```bash
+npx wrangler login
+npx wrangler deploy
+npx wrangler secret put GITHUB_OAUTH_CLIENT_ID       # paste the Client ID
+npx wrangler secret put GITHUB_OAUTH_CLIENT_SECRET   # paste the Client secret
+# optional — raises the History tab's rate limit:
+npx wrangler secret put GITHUB_TOKEN                  # a classic token, public_repo scope
+```
+`deploy` prints the Worker URL, e.g.
+`https://crates-diff-gh-proxy.<your-subdomain>.workers.dev`.
+
+### 4. Point the site at it — `../docs/config.js`
+```js
+window.GH_PROXY          = "https://crates-diff-gh-proxy.<your-subdomain>.workers.dev";
+window.GH_OAUTH_CLIENT_ID = "<the OAuth Client ID>";
+window.NOTES_REPO         = "muhammad-hassnain/crates-diff-notes";
+```
+Commit and push. Done — a **Sign in with GitHub** button appears, and the Notes tab
+becomes attributed comment threads.
+
+## Behaviour & safety notes
+
+- **Until this is configured**, the Notes tab falls back to per-browser
+  `localStorage` notes (no login), so the site always works.
+- The visitor's token is scoped to **`public_repo`** and stored in *their own*
+  browser — the same model utterances/giscus use. The Worker only ever holds the
+  client secret and does the code→token exchange.
+- Any signed-in GitHub user can post; notes are attributed to their account, so you
+  can moderate or block abusers on the notes repo like any GitHub issues.
+- Free Cloudflare tier is 100k requests/day — far more than this needs.

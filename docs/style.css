@@ -59,9 +59,31 @@ a:hover { text-decoration: underline; }
 .brand b { font-weight: 700; }
 .brand span { font-weight: 500; letter-spacing: .2px; }
 .brand-mark { display: block; color: var(--nav-fg); }
-.topnav-links { display: flex; gap: 18px; margin-left: auto; font-size: 14px; }
+.topnav-links { display: flex; align-items: center; gap: 18px; margin-left: auto; font-size: 14px; }
 .topnav-links a { color: var(--nav-muted); }
 .topnav-links a:hover { color: var(--nav-fg); text-decoration: none; }
+.signin { background: var(--accent); color: var(--accent-fg) !important; padding: 6px 12px; border-radius: 8px; font-weight: 600; }
+.signin:hover { background: var(--accent-hover); text-decoration: none; }
+.auth-user { display: flex; align-items: center; gap: 8px; color: var(--nav-fg); }
+.auth-user img { border-radius: 50%; display: block; }
+.auth-user a { color: var(--nav-muted); font-size: 13px; }
+
+/* note threads (issue-backed notes) */
+.notes-wrap { padding: 4px 0 0; }
+.thread { padding: 14px 16px; border-bottom: 1px solid var(--border-muted); }
+.thread-title { font-weight: 600; margin-bottom: 10px; }
+.thread-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+.note { display: flex; gap: 10px; }
+.note-av { border-radius: 50%; flex: none; }
+.note-main { flex: 1; min-width: 0; }
+.note-head { font-size: 13px; margin-bottom: 2px; }
+.note-head a { text-decoration: none; }
+.note-body { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+.composer textarea { width: 100%; font-family: inherit; font-size: 13.5px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; resize: vertical; }
+.composer textarea:focus { outline: 3px solid var(--focus); border-color: var(--accent); }
+.composer-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.composer-row .as { font-size: 12.5px; margin-left: auto; }
+.composer-status { font-size: 12px; margin-top: 6px; min-height: 14px; }
 
 #view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 

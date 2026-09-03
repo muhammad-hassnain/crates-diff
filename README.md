@@ -88,12 +88,20 @@ kept in `localStorage`. It's a hash-routed SPA — `#/` landing, `#/search/<q>`,
 `#/<crate>/<from>/<to>` for a diff (deep-linkable). Local/unpublished imports are the one
 thing it can't do — use the Rust binary for those.
 
-## `worker/` — optional GitHub token proxy
+## `worker/` — optional Cloudflare Worker backend
 
-The History tab uses the GitHub API, which is capped at 60 requests/hour when
-unauthenticated. `worker/` is a small Cloudflare Worker that holds a token as a secret and
-proxies those calls server-side, so the token is never exposed in the static site. It's
-entirely optional — leave `docs/config.js`'s `GH_PROXY` empty and the site calls GitHub
-directly. See [`worker/README.md`](worker/README.md) to deploy it.
+A small Worker (all secrets stay server-side) that adds two things when deployed:
+
+- **Sign in with GitHub → shared notes.** The Notes tab can store notes as issue
+  comments in a notes repo (`muhammad-hassnain/crates-diff-notes`), posted *as the
+  signed-in visitor* — the giscus/utterances model. The Worker holds the OAuth client
+  secret and does the `code → token` exchange.
+- **History-tab proxy.** Holds a GitHub token so the History tab isn't capped at 60
+  requests/hour.
+
+Both are optional: leave the values in `docs/config.js` empty and the site still works —
+History falls back to unauthenticated GitHub, and Notes fall back to per-browser
+`localStorage` (no login). See [`worker/README.md`](worker/README.md) for the one-time
+setup (OAuth app + deploy + secrets + config).
 
 No database, no npm, no build step for the frontend.
