@@ -4,10 +4,12 @@ A small, self-contained tool for browsing **full-source diffs between any
 two versions of a Rust crate**
 
 **Live (no install):** <https://muhammad-hassnain.github.io/crates-diff/> — a fully
-client-side build (in `docs/`) that runs the whole thing in the browser: it fetches
-crate tarballs straight from `static.crates.io`, then gunzips, untars, and diffs them
-locally. No server. The Rust version below is the original, and is still the way to
-diff **local/unpublished** builds.
+client-side, [diff.rs](https://diff.rs)-style single-page app (in `docs/`) that runs the
+whole thing in the browser: a landing page (search + New / Most Downloaded / Just Updated
+from the crates.io summary API) leads into a version diff view that fetches crate tarballs
+straight from `static.crates.io`, then gunzips, untars, and diffs them locally. No server.
+The Rust version below is the original, and is still the way to diff **local/unpublished**
+builds.
 
 It has:
 
@@ -82,7 +84,16 @@ data/            created at runtime (caches, notes.json, local/)
 deployed to GitHub Pages. crates.io, `static.crates.io`, and the GitHub API all send
 `Access-Control-Allow-Origin: *`, so the browser can fetch everything directly; the
 tarball unpack (gzip + tar) and the line diff (Myers) run in JavaScript, and notes are
-kept in `localStorage`. Local/unpublished imports are the one thing it can't do — use
-the Rust binary for those.
+kept in `localStorage`. It's a hash-routed SPA — `#/` landing, `#/search/<q>`,
+`#/<crate>/<from>/<to>` for a diff (deep-linkable). Local/unpublished imports are the one
+thing it can't do — use the Rust binary for those.
+
+## `worker/` — optional GitHub token proxy
+
+The History tab uses the GitHub API, which is capped at 60 requests/hour when
+unauthenticated. `worker/` is a small Cloudflare Worker that holds a token as a secret and
+proxies those calls server-side, so the token is never exposed in the static site. It's
+entirely optional — leave `docs/config.js`'s `GH_PROXY` empty and the site calls GitHub
+directly. See [`worker/README.md`](worker/README.md) to deploy it.
 
 No database, no npm, no build step for the frontend.

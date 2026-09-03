@@ -1,0 +1,6 @@
+name = "crates-diff-gh-proxy"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# The GitHub token is NOT stored here — it's a secret set with:
+#   npx wrangler secret put GITHUB_TOKEN
