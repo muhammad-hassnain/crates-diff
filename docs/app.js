@@ -407,6 +407,7 @@ function searchBar(value) {
 async function renderLanding() {
   view().innerHTML = `<div class="landing">
     <div class="hero">
+      <img class="hero-logo" src="logo.png" width="104" height="104" alt="crates_diff logo">
       <h1><b>crates</b>_diff</h1>
       <p>Full-source diffs between any two versions of a Rust crate from crates.io —
       an open-source, browser-based alternative to diff.rs.</p>
