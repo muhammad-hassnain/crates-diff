@@ -638,6 +638,13 @@ async function loadCrate(name) {
 
 $("#load-diff").addEventListener("click", compare);
 
+$("#swap-versions").addEventListener("click", () => {
+  const f = $("#ver-from"), t = $("#ver-to");
+  if (!f.value && !t.value) return;
+  [f.value, t.value] = [t.value, f.value];
+  compare();
+});
+
 /* ---------------- compare two versions ---------------- */
 
 async function compare() {
