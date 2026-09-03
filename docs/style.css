@@ -26,6 +26,8 @@ body {
   color: var(--text);
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 header {
@@ -40,14 +42,26 @@ header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; 
 header h1 span { color: var(--accent); }
 header .sub { color: var(--muted); font-size: 12px; }
 
+header { flex: none; }
+
 .layout {
   display: grid;
   grid-template-columns: 300px 340px 1fr;
-  height: calc(100vh - 45px);
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .col { border-right: 1px solid var(--border); overflow-y: auto; height: 100%; }
 .col:last-child { border-right: none; }
+
+/* Left column: search + results scroll, but the version pickers stay pinned
+   to the bottom so they're always reachable no matter how long the results are. */
+#col-crates { display: flex; flex-direction: column; overflow: hidden; }
+#col-crates > .section-title,
+#col-crates > .pad { flex: none; }
+#col-crates > #crate-results { flex: 1 1 auto; overflow-y: auto; min-height: 60px; }
+#col-crates > #version-pickers { border-top: 1px solid var(--border); background: var(--panel); }
+#col-crates > #crate-selected { background: var(--panel); }
 
 .section-title {
   font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
