@@ -1,7 +1,14 @@
 # crates_diff
 
-A small, self-contained Rust tool for browsing **full-source diffs between any
+A small, self-contained tool for browsing **full-source diffs between any
 two versions of a Rust crate**
+
+**Live (no install):** <https://muhammad-hassnain.github.io/crates-diff/> — a fully
+client-side build (in `docs/`) that runs the whole thing in the browser: it fetches
+crate tarballs straight from `static.crates.io`, then gunzips, untars, and diffs them
+locally. No server. The Rust version below is the original, and is still the way to
+diff **local/unpublished** builds.
+
 It has:
 
 - **Crate search** against crates.io.
@@ -64,8 +71,18 @@ src/
   github.rs      commit history via the GitHub compare API
   notes.rs       note persistence
   util.rs        HTTP + query-string helpers
-web/             zero-build HTML/CSS/JS frontend
+web/             zero-build HTML/CSS/JS frontend (talks to the Rust server)
+docs/            fully client-side port (deployed to GitHub Pages) — no backend
 data/            created at runtime (caches, notes.json, local/)
 ```
+
+## The `docs/` client-side build
+
+`docs/` is a standalone rewrite of the frontend that needs no server — it's what's
+deployed to GitHub Pages. crates.io, `static.crates.io`, and the GitHub API all send
+`Access-Control-Allow-Origin: *`, so the browser can fetch everything directly; the
+tarball unpack (gzip + tar) and the line diff (Myers) run in JavaScript, and notes are
+kept in `localStorage`. Local/unpublished imports are the one thing it can't do — use
+the Rust binary for those.
 
 No database, no npm, no build step for the frontend.

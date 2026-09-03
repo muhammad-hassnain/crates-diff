@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>crates_diff</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1><span>crates</span>_diff</h1>
+    <span class="sub">full-source diffs between any two crate versions — no semver filter</span>
+    <input id="gh-token" type="password" placeholder="GitHub token (optional)"
+      style="width:210px;margin-left:auto"
+      title="Lifts the 60 requests/hour GitHub API limit used by the History tab. Stored only in your browser (localStorage) and sent only to api.github.com.">
+  </header>
+
+  <div class="layout">
+    <!-- column 1: crate search + version pickers -->
+    <div class="col" id="col-crates">
+      <div class="section-title">Find a crate</div>
+      <div class="pad">
+        <input type="search" id="crate-search" placeholder="search crates.io…  (Enter)">
+      </div>
+      <div id="crate-results"></div>
+
+      <div class="section-title">Selected</div>
+      <div class="pad" id="crate-selected">
+        <div class="muted">No crate loaded yet.</div>
+      </div>
+      <div class="pad" id="version-pickers" style="display:none">
+        <div class="row" style="margin-bottom:8px">
+          <div style="flex:1">
+            <div class="muted" style="font-size:11px;margin-bottom:3px">from</div>
+            <select id="ver-from"></select>
+          </div>
+          <div style="flex:1">
+            <div class="muted" style="font-size:11px;margin-bottom:3px">to</div>
+            <select id="ver-to"></select>
+          </div>
+        </div>
+        <button class="primary" id="load-diff" style="width:100%">Compare</button>
+      </div>
+    </div>
+
+    <!-- column 2: file list + content search -->
+    <div class="col" id="col-files">
+      <div class="searchbar">
+        <input type="search" id="content-search" placeholder="search inside files…  (Enter)">
+      </div>
+      <div id="file-summary" class="pad muted" style="font-size:12px"></div>
+      <div id="file-list"></div>
+    </div>
+
+    <!-- column 3: tabbed diff / github / notes -->
+    <div class="col" id="col-main">
+      <div class="tabs">
+        <div class="tab active" data-tab="diff">Diff</div>
+        <div class="tab" data-tab="github">GitHub</div>
+        <div class="tab" data-tab="notes">Notes</div>
+      </div>
+      <div class="tabpane active" id="pane-diff">
+        <div class="empty">Pick a crate, choose two versions, then a file.</div>
+      </div>
+      <div class="tabpane" id="pane-github">
+        <div class="empty">Commit history for the selected transition appears here.</div>
+      </div>
+      <div class="tabpane" id="pane-notes">
+        <div class="empty">Notes appear here once a crate is loaded.</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
