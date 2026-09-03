@@ -3,8 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>crates_diff</title>
-  <meta name="description" content="Full-source diffs between any two versions of a Rust crate — right in the browser.">
+
+  <title>crates_diff — Rust crate diffs (crates.io) · a diff.rs alternative</title>
+  <meta name="description" content="crates_diff is a free, open-source tool to view full-source diffs between any two versions of a Rust crate from crates.io — a fast, browser-based alternative to diff.rs. Search crates, compare versions file by file, browse GitHub history, and leave notes.">
+  <meta name="keywords" content="rust, crates, crates.io, diff.rs, crate diff, rust crate diff, compare crate versions, cargo, source diff, semver diff, rust package diff, crates.io diff">
+  <meta name="author" content="Muhammad Hassnain">
+  <link rel="canonical" href="https://muhammad-hassnain.github.io/crates-diff/">
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="crates_diff">
+  <meta property="og:title" content="crates_diff — full-source diffs between Rust crate versions">
+  <meta property="og:description" content="Compare any two versions of a Rust crate from crates.io, file by file, in your browser. An open-source alternative to diff.rs.">
+  <meta property="og:url" content="https://muhammad-hassnain.github.io/crates-diff/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="crates_diff — Rust crate diffs from crates.io">
+  <meta name="twitter:description" content="Full-source diffs between any two versions of a Rust crate. A browser-based, open-source alternative to diff.rs.">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "crates_diff",
+    "alternateName": "crates diff",
+    "url": "https://muhammad-hassnain.github.io/crates-diff/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Any (web browser)",
+    "description": "View full-source diffs between any two versions of a Rust crate from crates.io — a browser-based, open-source alternative to diff.rs.",
+    "author": {
+      "@type": "Person",
+      "name": "Muhammad Hassnain",
+      "email": "mhassnain@ucdavis.edu",
+      "url": "https://muhammad-hassnain.github.io/"
+    },
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,12 +53,21 @@
     </a>
     <nav class="topnav-links">
       <a href="#/about">About</a>
-      <a href="https://github.com/muhammad-hassnain/crates-diff" target="_blank" rel="noopener">Source</a>
       <span id="auth-slot"></span>
     </nav>
   </header>
 
-  <main id="view"><div class="loading">loading…</div></main>
+  <main id="view">
+    <div class="loading">
+      <noscript>
+        <h1>crates_diff</h1>
+        <p>Full-source diffs between any two versions of a Rust crate from crates.io —
+        an open-source, browser-based alternative to diff.rs. This tool needs JavaScript
+        enabled.</p>
+      </noscript>
+      loading…
+    </div>
+  </main>
 
   <script src="config.js"></script>
   <script src="app.js"></script>

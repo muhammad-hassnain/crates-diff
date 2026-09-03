@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://muhammad-hassnain.github.io/crates-diff/sitemap.xml
