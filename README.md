@@ -3,13 +3,14 @@
 A small, self-contained tool for browsing **full-source diffs between any
 two versions of a Rust crate**
 
-**Live (no install):** <https://muhammad-hassnain.github.io/crates-diff/> — a fully
+**Live:** <https://muhammad-hassnain.github.io/crates-diff/> — a fully
 client-side, [diff.rs](https://diff.rs)-style single-page app (in `docs/`) that runs the
 whole thing in the browser: a landing page (search + New / Most Downloaded / Just Updated
 from the crates.io summary API) leads into a version diff view that fetches crate tarballs
-straight from `static.crates.io`, then gunzips, untars, and diffs them locally. No server.
-The Rust version below is the original, and is still the way to diff **local/unpublished**
-builds.
+straight from `static.crates.io`.
+
+**Local**
+You can also use this locally (as an in-house auditing tools for Rust crate diffs):
 
 It has:
 
@@ -19,8 +20,7 @@ It has:
   with per-file line counts, and a full unified diff for any file.
 - **Content search** across a version transition (jump to matching lines).
 - **GitHub history**: commits between the two versions' tags.
-- **Notes** per crate and per version-transition (free-form, autosaved — no
-  audit questions).
+- **Notes** per crate and per version-transition  
 - **Local (unpublished) versions**: import a crate source tree so it shows up in
   the version list next to the published versions.
 
@@ -43,23 +43,22 @@ Options: `--host <H>` and `--port <N>`.
 
 ## Import an unpublished version
 
-Some builds never hit crates.io (e.g. a newer local checkout). Import the source
-tree and it appears in the version list, sorted by semver:
+You can also use this to diff against unpublished versions:
 
 ```bash
 ./target/release/crates_diff add-local <crate> <version> <path-to-source-dir>
 
-# example: the arrayref 0.3.10 build sitting on the Desktop
-./target/release/crates_diff add-local arrayref 0.3.10 ~/Desktop/arrayref-0.3.10
+# example: if you have a crate named `hello` with version `0.3.10` sitting on your Desktop
+./target/release/crates_diff add-local hello 0.3.10 ~/Desktop/hello-0.3.10
 ```
 
 Imported versions live under `data/local/<crate>/<version>/`.
 
 ## GitHub token (optional)
 
-The history tab uses the GitHub API (60 requests/hour unauthenticated). To lift
-that, drop a token in a `.github_token` file at the project root, or set
-`GITHUB_TOKEN`. Public-repo read access is enough.
+It also fetches GitHub commits between two selected versions. By default, the API 
+allows 60 requests/hour, if you want to increase this, please use a Github Access token.  
+You can Generate a GitHub personal access token from [token page](https://github.com/settings/tokens/new). Please select Generate new token (classic). Then, name your token, select an expiration date, and grant the token at least the `public_repo` scope by checking the box.
 
 ## Layout
 
@@ -83,12 +82,12 @@ data/            created at runtime (caches, notes.json, local/)
 `docs/` is a standalone rewrite of the frontend that needs no server — it's what's
 deployed to GitHub Pages. crates.io, `static.crates.io`, and the GitHub API all send
 `Access-Control-Allow-Origin: *`, so the browser can fetch everything directly; the
-tarball unpack (gzip + tar) and the line diff (Myers) run in JavaScript, and notes are
-kept in `localStorage`. It's a hash-routed SPA — `#/` landing, `#/search/<q>`,
-`#/<crate>/<from>/<to>` for a diff (deep-linkable). Local/unpublished imports are the one
-thing it can't do — use the Rust binary for those.
+tarball unpack (gzip + tar) and the line diff (Myers) run in JavaScript, and notes are pushed to a seperate github repo as issues`. 
+It's a hash-routed SPA — `#/` landing, `#/search/<q>`,
+`#/<crate>/<from>/<to>` for a diff (deep-linkable). 
+The deployed UI does not Local/unpublished crates for that, use the Rust binary.
 
-## `worker/` — optional Cloudflare Worker backend
+## `worker/` — Cloudflare Worker backend
 
 A small Worker (all secrets stay server-side) that adds two things when deployed:
 
@@ -103,5 +102,3 @@ Both are optional: leave the values in `docs/config.js` empty and the site still
 History falls back to unauthenticated GitHub, and Notes fall back to per-browser
 `localStorage` (no login). See [`worker/README.md`](worker/README.md) for the one-time
 setup (OAuth app + deploy + secrets + config).
-
-No database, no npm, no build step for the frontend.
