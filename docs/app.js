@@ -572,18 +572,64 @@ async function loadDiff() {
   }
 }
 
+// Build a nested {folder -> children} tree from flat file paths.
+function buildTree(files) {
+  const root = { name: "", dir: true, children: new Map(), path: "" };
+  for (const f of files) {
+    const parts = f.path.split("/");
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const seg = parts[i];
+      if (!node.children.has(seg)) node.children.set(seg, { name: seg, dir: true, children: new Map(), path: parts.slice(0, i + 1).join("/") });
+      node = node.children.get(seg);
+    }
+    node.children.set(parts[parts.length - 1], { name: parts[parts.length - 1], dir: false, file: f, path: f.path });
+  }
+  return root;
+}
+// Aggregate change counts for a folder (all descendant files).
+function aggChanges(node) {
+  let changed = 0, added = 0, removed = 0;
+  (function walk(n) { for (const c of n.children.values()) { if (c.dir) walk(c); else if (c.file.status !== "unchanged") { changed++; added += c.file.added; removed += c.file.removed; } } })(node);
+  return { changed, added, removed };
+}
+function statHtml(added, removed) { return `<span class="stat"><span class="a">+${added}</span> <span class="d">-${removed}</span></span>`; }
+function fileBadge(status) {
+  return status === "added" ? '<span class="badge added">A</span>' : status === "removed" ? '<span class="badge removed">D</span>' : status === "modified" ? '<span class="badge modified">M</span>' : "";
+}
+function renderTreeChildren(node, depth) {
+  const kids = [...node.children.values()].sort((a, b) => (a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  let out = "";
+  for (const c of kids) {
+    const pad = 8 + depth * 14;
+    if (c.dir) {
+      const agg = aggChanges(c);
+      out += `<div class="tree-folder" style="padding-left:${pad}px"><span class="chev">▾</span><span class="fname">${esc(c.name)}/</span>${agg.changed ? statHtml(agg.added, agg.removed) : ""}</div>`;
+      out += `<div class="tree-children">${renderTreeChildren(c, depth + 1)}</div>`;
+    } else {
+      const f = c.file;
+      const stat = f.status !== "unchanged" ? statHtml(f.added, f.removed) : "";
+      out += `<div class="file-row${f.status === "unchanged" ? " unchanged" : ""}" data-path="${esc(f.path)}" style="padding-left:${pad}px">${fileBadge(f.status)}<span class="fname" title="${esc(f.path)}">${esc(c.name)}</span>${stat}</div>`;
+    }
+  }
+  return out;
+}
+
 function renderFileList(files) {
   const list = $("#file-list"); list.innerHTML = "";
   if (!files.length) { list.innerHTML = '<div class="empty">no files</div>'; return; }
-  for (const f of files) {
-    const row = el("div", "file-row" + (f.status === "unchanged" ? " unchanged" : ""));
-    row.dataset.path = f.path;
-    let stat = f.status !== "unchanged" ? `<span class="stat"><span class="a">+${f.added}</span> <span class="d">-${f.removed}</span></span>` : "";
-    let badge = f.status === "added" ? '<span class="badge added">A</span>' : f.status === "removed" ? '<span class="badge removed">D</span>' : f.status === "modified" ? '<span class="badge modified">M</span>' : "";
-    row.innerHTML = `${badge}<span class="path" title="${esc(f.path)}">${esc(f.path)}</span>${stat}`;
-    row.onclick = () => openFile(f.path);
-    list.appendChild(row);
-  }
+  list.innerHTML = renderTreeChildren(buildTree(files), 0);
+  list.querySelectorAll(".tree-folder").forEach((fd) => {
+    fd.onclick = () => {
+      fd.classList.toggle("collapsed");
+      const kids = fd.nextElementSibling;
+      if (kids && kids.classList.contains("tree-children")) kids.hidden = fd.classList.contains("collapsed");
+    };
+  });
+  list.querySelectorAll(".file-row[data-path]").forEach((r) => {
+    r.onclick = () => openFile(r.dataset.path);
+    if (cmp.path) r.classList.toggle("active", r.dataset.path === cmp.path);
+  });
 }
 
 function openFile(path) {

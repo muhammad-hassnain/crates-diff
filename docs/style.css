@@ -253,6 +253,19 @@ input:focus, select:focus, button:focus-visible {
 .file-row.active { background: rgba(184, 103, 11, .09); box-shadow: inset 3px 0 0 var(--accent); }
 .file-row .path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .file-row.unchanged .path { color: var(--muted); }
+.file-row .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-row.unchanged .fname { color: var(--muted); }
+
+/* directory tree */
+.tree-folder {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px 7px 8px; cursor: pointer; font-size: 13px;
+  border-bottom: 1px solid var(--border-muted); user-select: none;
+}
+.tree-folder:hover { background: var(--bg-subtle); }
+.tree-folder .chev { width: 11px; flex: none; color: var(--muted); font-size: 10px; transition: transform .12s; }
+.tree-folder.collapsed .chev { transform: rotate(-90deg); }
+.tree-folder .fname { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stat { font-variant-numeric: tabular-nums; font-size: 12px; flex: none; }
 .stat .a { color: var(--add-fg); }
 .stat .d { color: var(--del-fg); }
