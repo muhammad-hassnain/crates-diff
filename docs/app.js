@@ -1045,9 +1045,10 @@ function renderAbout() {
     <a class="back" href="#/">← home</a>
     <h2>About</h2>
 
+    I built this site to help me see what changed between versions of Rust crates I use, and to help me decide whether to upgrade. I hope it helps you too. This is inspired by <a href="https://diff.rs" target="_blank" rel="noopener">diff.rs</a>, I wanted to build a new site, because, diff.rs looks unmaintained and does not work for many crates. 
     <p><b>crates_diff</b> shows <b>full-source diffs between any two versions of a Rust
     crate</b>. It's a free, open-source, browser-based tool for <a href="https://crates.io" target="_blank" rel="noopener">crates.io</a>
-    packages, in the spirit of <a href="https://diff.rs" target="_blank" rel="noopener">diff.rs</a>.</p>
+    packages. 
 
     <p>Everything runs in your browser. You can:</p>
     <ul class="about-list">
