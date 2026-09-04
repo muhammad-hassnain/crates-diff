@@ -43,6 +43,14 @@ export default {
     // rate-limiting rule for real abuse protection.)
     if (!ALLOWED_ORIGINS.includes(origin)) return json({ error: "forbidden origin" }, 403, cors);
 
+    // Per-IP rate limit (free Workers Rate Limiting binding): stops a determined
+    // caller — even one spoofing Origin — from burning the token's rate limit.
+    if (env.RATE_LIMITER) {
+      const ip = request.headers.get("CF-Connecting-IP") || "anon";
+      const { success } = await env.RATE_LIMITER.limit({ key: ip });
+      if (!success) return json({ error: "rate limited — slow down" }, 429, cors);
+    }
+
     // ---- OAuth code -> token exchange ----
     if (url.pathname === "/oauth/token") {
       if (request.method !== "GET") return json({ error: "only GET" }, 405, cors);

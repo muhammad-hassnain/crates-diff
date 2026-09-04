@@ -65,3 +65,7 @@ becomes attributed comment threads.
 - Any signed-in GitHub user can post; notes are attributed to their account, so you
   can moderate or block abusers on the notes repo like any GitHub issues.
 - Free Cloudflare tier is 100k requests/day — far more than this needs.
+- **Abuse protection:** requests must come from an allow-listed `Origin` (403 otherwise),
+  and a free Workers Rate-Limiting binding caps each IP at 100 requests / 60s (429 over
+  that) — so a determined caller can't burn the token's GitHub rate limit. Tune the limit
+  in `wrangler.toml` under `[[unsafe.bindings]]`.
