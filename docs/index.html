@@ -46,7 +46,8 @@
   }
   </script>
 
-  <link rel="stylesheet" href="style.css">
+  <script>try{var t=localStorage.getItem('crates_diff_theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <header class="topnav">
@@ -56,6 +57,7 @@
     </a>
     <nav class="topnav-links">
       <a href="#/about">About</a>
+      <button id="theme-toggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme"></button>
       <span id="auth-slot"></span>
     </nav>
   </header>
@@ -72,7 +74,7 @@
     </div>
   </main>
 
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script src="config.js?v=11"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

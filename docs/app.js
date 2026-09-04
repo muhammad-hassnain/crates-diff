@@ -551,7 +551,7 @@ function onVersionChange() {
 
 async function loadDiff() {
   const { crate, from, to } = cmp;
-  cmp.path = null; cmp.githubLoaded = null;
+  cmp.path = null; cmp.githubLoaded = null; cmp.lineComments = null;
   $("#file-list").innerHTML = '<div class="spinner">downloading & diffing…</div>';
   $("#summary").innerHTML = `<b>${esc(from)}</b> → <b>${esc(to)}</b>`;
   setPane("diff", '<div class="empty">Select a file to view its diff.</div>');
@@ -592,6 +592,7 @@ function openFile(path) {
   switchTab("diff");
   const d = computeFileDiff(cmp.aMap, cmp.bMap, path);
   setPane("diff", d ? renderDiff(d) : '<div class="empty">file not found</div>');
+  if (d) decorateLineComments(path);
 }
 
 /* ---------------- syntax highlighting (dependency-free, per line) ---------------- */
@@ -646,7 +647,8 @@ function highlighterFor(path) {
 }
 
 function renderDiff(d) {
-  const head = `<div class="file-head"><span class="mono">${esc(d.path)}</span> <span class="badge ${d.status === "unchanged" ? "" : d.status}">${esc(d.status)}</span></div>`;
+  const hint = notesEnabled() ? ' <span class="cmt-hint">— click a line number to comment</span>' : "";
+  const head = `<div class="file-head"><span class="mono">${esc(d.path)}</span> <span class="badge ${d.status === "unchanged" ? "" : d.status}">${esc(d.status)}</span>${hint}</div>`;
   if (!d.hunks.length) return head + '<div class="empty">empty file (no content)</div>';
   // Count total lines; skip highlighting for very large renders to stay snappy.
   const total = d.hunks.reduce((a, h) => a + h.lines.length, 0);
@@ -656,10 +658,102 @@ function renderDiff(d) {
     out += `<div class="hunk-header">${esc(h.header)}</div>`;
     for (const ln of h.lines) {
       const sign = ln.tag === "add" ? "+" : ln.tag === "del" ? "-" : " ";
-      out += `<div class="dline ${ln.tag}"><span class="ln">${ln.old == null ? "" : ln.old}</span><span class="ln">${ln.new == null ? "" : ln.new}</span><span class="sign">${sign}</span><span class="tx">${hl(ln.text) || "&nbsp;"}</span></div>`;
+      const ref = ln.new != null ? "R" + ln.new : "L" + ln.old;   // right(new) / left(old) line ref
+      const anchor = `${d.path}#${ref}`;
+      out += `<div class="dline ${ln.tag}" data-anchor="${esc(anchor)}"><span class="ln">${ln.old == null ? "" : ln.old}</span><span class="ln">${ln.new == null ? "" : ln.new}</span><span class="sign">${sign}</span><span class="tx">${hl(ln.text) || "&nbsp;"}</span></div>`;
     }
   }
   return head + out + "</div>";
+}
+
+/* ---------------- inline line comments (PR-review style) ----------------
+   Each comment is an issue comment in the notes repo, on a per-transition issue
+   titled `lines:<crate>@<from>..<to>`, its body prefixed with a hidden anchor
+   marker <!--cdx:<path>#<Rnn|Lnn>--> so it can be pinned back to the exact line. */
+function lineIssueKey() { return `lines:${cmp.crate}@${cmp.from}..${cmp.to}`; }
+
+async function getLineComments() {
+  if (cmp.lineComments) return cmp.lineComments;
+  const map = new Map();
+  try {
+    const num = await findIssueNumber(lineIssueKey());
+    if (num != null) {
+      const arr = await notesApi(`/repos/${window.NOTES_REPO}/issues/${num}/comments?per_page=100`);
+      for (const c of arr || []) {
+        const m = /^<!--cdx:(.+?)-->\n?/.exec(c.body || "");
+        if (!m) continue;
+        const anchor = m[1], text = c.body.slice(m[0].length);
+        if (!map.has(anchor)) map.set(anchor, []);
+        map.get(anchor).push({ login: c.user && c.user.login, avatar: c.user && c.user.avatar_url, url: c.html_url, date: c.created_at, text });
+      }
+    }
+  } catch (_) {}
+  cmp.lineComments = map;
+  return map;
+}
+
+async function postLineComment(anchor, text) {
+  const num = await ensureIssue(lineIssueKey());
+  await notesApi(`/repos/${window.NOTES_REPO}/issues/${num}/comments`, { method: "POST", body: JSON.stringify({ body: `<!--cdx:${anchor}-->\n${text}` }) });
+}
+
+async function decorateLineComments(path) {
+  if (!notesEnabled()) return;
+  const pane = $("#pane-diff");
+  if (!pane) return;
+  const map = await getLineComments();
+  pane.querySelectorAll(".dline").forEach((dl) => {
+    const list = map.get(dl.getAttribute("data-anchor"));
+    if (list && list.length) { dl.classList.add("has-comments"); insertLineThread(dl, dl.getAttribute("data-anchor"), list); }
+  });
+  pane.onclick = (e) => {
+    const rep = e.target.closest(".reply-c");
+    if (rep) { const box = rep.closest(".line-thread"); openLineComposer(box.previousElementSibling, box.dataset.anchor); return; }
+    const ln = e.target.closest(".dline .ln");
+    if (ln) { const dl = ln.closest(".dline"); openLineComposer(dl, dl.getAttribute("data-anchor")); }
+  };
+}
+
+function threadNoteHtml(n) {
+  return `<div class="note"><img class="note-av" src="${esc(n.avatar)}" width="22" height="22" alt=""><div class="note-main"><div class="note-head"><a href="https://github.com/${esc(n.login)}" target="_blank" rel="noopener"><b>${esc(n.login)}</b></a> <a href="${esc(n.url)}" target="_blank" rel="noopener" class="muted">${esc(relDate(n.date))}</a></div><div class="note-body">${noteText(n.text)}</div></div></div>`;
+}
+
+function insertLineThread(dl, anchor, list) {
+  let box = dl.nextElementSibling;
+  if (!(box && box.classList.contains("line-thread"))) {
+    box = document.createElement("div");
+    box.className = "line-thread";
+    dl.insertAdjacentElement("afterend", box);
+  }
+  box.dataset.anchor = anchor;
+  box.innerHTML = list.map(threadNoteHtml).join("") + `<button class="reply-c">Reply</button>`;
+}
+
+function openLineComposer(dl, anchor) {
+  if (!authState.token) { login(); return; }
+  const ref = dl.nextElementSibling && dl.nextElementSibling.classList.contains("line-thread") ? dl.nextElementSibling : dl;
+  const next = ref.nextElementSibling;
+  if (next && next.classList.contains("line-composer")) { next.querySelector("textarea").focus(); return; }
+  const box = document.createElement("div");
+  box.className = "line-composer";
+  box.innerHTML = `<textarea rows="2" placeholder="Comment on this line…"></textarea><div class="composer-row"><button class="cancel-c">Cancel</button><button class="primary post-c">Comment</button></div><div class="composer-status muted"></div>`;
+  ref.insertAdjacentElement("afterend", box);
+  box.querySelector("textarea").focus();
+  box.querySelector(".cancel-c").onclick = () => box.remove();
+  box.querySelector(".post-c").onclick = async () => {
+    const ta = box.querySelector("textarea"), text = ta.value.trim();
+    if (!text) return;
+    const btn = box.querySelector(".post-c"), st = box.querySelector(".composer-status");
+    btn.disabled = true; st.textContent = "posting…";
+    try {
+      await postLineComment(anchor, text);
+      cmp.lineComments = null;
+      const map = await getLineComments();
+      box.remove();
+      dl.classList.add("has-comments");
+      insertLineThread(dl, anchor, map.get(anchor) || []);
+    } catch (e) { st.textContent = "error: " + e.message; btn.disabled = false; }
+  };
 }
 
 function contentSearch() {
@@ -803,12 +897,18 @@ const issueMap = new Map(); // key -> issue number (session cache)
 
 async function findIssueNumber(key) {
   if (issueMap.has(key)) return issueMap.get(key);
-  const q = encodeURIComponent(`repo:${window.NOTES_REPO} in:title "${key}"`);
-  const res = await notesApi(`/search/issues?q=${q}&per_page=20`);
-  const hit = (res.items || []).find((i) => i.title === key);
-  const num = hit ? hit.number : null;
-  if (num != null) issueMap.set(key, num);
-  return num;
+  // List our note-labelled issues and match the title exactly. More reliable than
+  // the search API (no indexing lag, no tokenising of @ / .. / : in the title).
+  let found = null;
+  for (let page = 1; page <= 5 && found == null; page++) {
+    const arr = await notesApi(`/repos/${window.NOTES_REPO}/issues?labels=note&state=all&per_page=100&page=${page}`);
+    if (!Array.isArray(arr) || !arr.length) break;
+    const hit = arr.find((i) => i.title === key);
+    if (hit) found = hit.number;
+    if (arr.length < 100) break;
+  }
+  if (found != null) issueMap.set(key, found);
+  return found;
 }
 async function ensureIssue(key) {
   let num = await findIssueNumber(key);
@@ -974,8 +1074,30 @@ function renderAbout() {
   </div>`;
 }
 
+/* ---------------- theme (light / dark) ---------------- */
+// The stored theme is applied pre-paint by an inline script in <head>; here we just
+// reflect it in the toggle and let the button flip it.
+function currentTheme() { return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
+function applyTheme(t) { if (t === "dark") document.documentElement.setAttribute("data-theme", "dark"); else document.documentElement.removeAttribute("data-theme"); }
+function renderThemeToggle() {
+  const b = document.getElementById("theme-toggle");
+  if (!b) return;
+  const dark = currentTheme() === "dark";
+  b.textContent = dark ? "☀" : "☾";
+  b.title = dark ? "Switch to light mode" : "Switch to dark mode";
+}
+function toggleTheme() {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try { localStorage.setItem("crates_diff_theme", next); } catch (_) {}
+  renderThemeToggle();
+}
+
 /* ---------------- boot ---------------- */
 async function boot() {
+  const tb = document.getElementById("theme-toggle");
+  if (tb) tb.onclick = toggleTheme;
+  renderThemeToggle();
   await handleOAuthCallback();   // turns ?code=... into a stored token, restores the hash
   await loadUser();              // resolves the signed-in identity (if any)
   renderAuth();
