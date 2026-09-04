@@ -594,15 +594,69 @@ function openFile(path) {
   setPane("diff", d ? renderDiff(d) : '<div class="empty">file not found</div>');
 }
 
+/* ---------------- syntax highlighting (dependency-free, per line) ---------------- */
+const RUST_KW = new Set(["as","async","await","break","const","continue","crate","dyn","else","enum","extern","fn","for","if","impl","in","let","loop","match","mod","move","mut","pub","ref","return","self","static","struct","super","trait","type","union","unsafe","use","where","while"]);
+const RUST_PRIM = new Set(["u8","u16","u32","u64","u128","usize","i8","i16","i32","i64","i128","isize","f32","f64","bool","char","str"]);
+const escCode = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const span = (cls, txt) => (cls ? `<span class="t-${cls}">${escCode(txt)}</span>` : escCode(txt));
+
+function hlRust(src) {
+  let out = "", i = 0; const n = src.length;
+  while (i < n) {
+    const c = src[i], rest = src.slice(i);
+    if (c === "/" && src[i + 1] === "/") { out += span("c", src.slice(i)); break; }
+    if (c === "/" && src[i + 1] === "*") { let j = src.indexOf("*/", i + 2); j = j < 0 ? n : j + 2; out += span("c", src.slice(i, j)); i = j; continue; }
+    if (c === '"') { let j = i + 1; while (j < n) { if (src[j] === "\\") { j += 2; continue; } if (src[j] === '"') { j++; break; } j++; } out += span("s", src.slice(i, j)); i = j; continue; }
+    if (c === "r" && (src[i + 1] === '"' || src[i + 1] === "#")) { let k = i + 1, h = 0; while (src[k] === "#") { h++; k++; } if (src[k] === '"') { const close = '"' + "#".repeat(h); let j = src.indexOf(close, k + 1); j = j < 0 ? n : j + close.length; out += span("s", src.slice(i, j)); i = j; continue; } }
+    if (c === "'") { const ch = /^'(\\.|[^'\\])'/.exec(rest); if (ch) { out += span("s", ch[0]); i += ch[0].length; continue; } const lt = /^'[A-Za-z_][A-Za-z0-9_]*/.exec(rest); if (lt) { out += span("life", lt[0]); i += lt[0].length; continue; } out += escCode(c); i++; continue; }
+    if (c === "#" && (src[i + 1] === "[" || (src[i + 1] === "!" && src[i + 2] === "["))) { let j = src.indexOf("]", i); j = j < 0 ? n : j + 1; out += span("attr", src.slice(i, j)); i = j; continue; }
+    if (c >= "0" && c <= "9") { const m = /^(0x[0-9a-fA-F_]+|0b[01_]+|0o[0-7_]+|[0-9][0-9_]*(\.[0-9][0-9_]*)?([eE][+-]?[0-9]+)?)([iu](8|16|32|64|128|size)|f(32|64))?/.exec(rest); if (m) { out += span("num", m[0]); i += m[0].length; continue; } }
+    if (/[A-Za-z_]/.test(c)) {
+      const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(rest); const w = m[0]; let cls = null;
+      if (src[i + w.length] === "!") cls = "macro";
+      else if (RUST_KW.has(w) || w === "Self") cls = "kw";
+      else if (w === "true" || w === "false") cls = "num";
+      else if (/^[A-Z]/.test(w) || RUST_PRIM.has(w)) cls = "type";
+      out += span(cls, w); i += w.length; continue;
+    }
+    out += escCode(c); i++;
+  }
+  return out;
+}
+
+// Light highlighter for non-Rust files (toml / lock / json / md / yaml…).
+function hlGeneric(src) {
+  let out = "", i = 0; const n = src.length;
+  while (i < n) {
+    const c = src[i], rest = src.slice(i);
+    if (c === "#" || (c === "/" && src[i + 1] === "/")) { out += span("c", src.slice(i)); break; }
+    if (c === '"' || c === "'") { const q = c; let j = i + 1; while (j < n) { if (src[j] === "\\") { j += 2; continue; } if (src[j] === q) { j++; break; } j++; } out += span("s", src.slice(i, j)); i = j; continue; }
+    if (c >= "0" && c <= "9") { const m = /^[0-9][0-9_.]*/.exec(rest); if (m) { out += span("num", m[0]); i += m[0].length; continue; } }
+    if (/[A-Za-z_]/.test(c)) { const m = /^[A-Za-z_][A-Za-z0-9_-]*/.exec(rest); const w = m[0]; const cls = (w === "true" || w === "false" || w === "null") ? "num" : null; out += span(cls, w); i += w.length; continue; }
+    out += escCode(c); i++;
+  }
+  return out;
+}
+
+function highlighterFor(path) {
+  const ext = (path.split(".").pop() || "").toLowerCase();
+  if (ext === "rs") return hlRust;
+  if (["toml", "lock", "json", "yaml", "yml", "md", "cfg", "ini", "orig"].includes(ext)) return hlGeneric;
+  return escCode;
+}
+
 function renderDiff(d) {
   const head = `<div class="file-head"><span class="mono">${esc(d.path)}</span> <span class="badge ${d.status === "unchanged" ? "" : d.status}">${esc(d.status)}</span></div>`;
   if (!d.hunks.length) return head + '<div class="empty">empty file (no content)</div>';
+  // Count total lines; skip highlighting for very large renders to stay snappy.
+  const total = d.hunks.reduce((a, h) => a + h.lines.length, 0);
+  const hl = total > 6000 ? escCode : highlighterFor(d.path);
   let out = '<div class="diff">';
   for (const h of d.hunks) {
     out += `<div class="hunk-header">${esc(h.header)}</div>`;
     for (const ln of h.lines) {
       const sign = ln.tag === "add" ? "+" : ln.tag === "del" ? "-" : " ";
-      out += `<div class="dline ${ln.tag}"><span class="ln">${ln.old == null ? "" : ln.old}</span><span class="ln">${ln.new == null ? "" : ln.new}</span><span class="sign">${sign}</span><span class="tx">${esc(ln.text) || "&nbsp;"}</span></div>`;
+      out += `<div class="dline ${ln.tag}"><span class="ln">${ln.old == null ? "" : ln.old}</span><span class="ln">${ln.new == null ? "" : ln.new}</span><span class="sign">${sign}</span><span class="tx">${hl(ln.text) || "&nbsp;"}</span></div>`;
     }
   }
   return head + out + "</div>";
