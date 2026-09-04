@@ -592,7 +592,10 @@ function openFile(path) {
   switchTab("diff");
   const d = computeFileDiff(cmp.aMap, cmp.bMap, path);
   setPane("diff", d ? renderDiff(d) : '<div class="empty">file not found</div>');
-  if (d) decorateLineComments(path);
+  if (d) {
+    document.querySelectorAll("#pane-diff .view-toggle button").forEach((b) => (b.onclick = () => setDiffView(b.dataset.view)));
+    decorateLineComments(path);
+  }
 }
 
 /* ---------------- syntax highlighting (dependency-free, per line) ---------------- */
@@ -646,13 +649,22 @@ function highlighterFor(path) {
   return escCode;
 }
 
+function diffView() { try { return localStorage.getItem("crates_diff_diffview") === "split" ? "split" : "unified"; } catch (_) { return "unified"; } }
+function setDiffView(m) { try { localStorage.setItem("crates_diff_diffview", m); } catch (_) {} if (cmp.path) openFile(cmp.path); }
+
 function renderDiff(d) {
   const hint = notesEnabled() ? ' <span class="cmt-hint">— click a line number to comment</span>' : "";
-  const head = `<div class="file-head"><span class="mono">${esc(d.path)}</span> <span class="badge ${d.status === "unchanged" ? "" : d.status}">${esc(d.status)}</span>${hint}</div>`;
+  const v = diffView();
+  const toggle = `<span class="view-toggle"><button data-view="unified" class="${v === "unified" ? "active" : ""}">Unified</button><button data-view="split" class="${v === "split" ? "active" : ""}">Split</button></span>`;
+  const head = `<div class="file-head"><span class="mono">${esc(d.path)}</span> <span class="badge ${d.status === "unchanged" ? "" : d.status}">${esc(d.status)}</span>${hint}${toggle}</div>`;
   if (!d.hunks.length) return head + '<div class="empty">empty file (no content)</div>';
   // Count total lines; skip highlighting for very large renders to stay snappy.
   const total = d.hunks.reduce((a, h) => a + h.lines.length, 0);
   const hl = total > 6000 ? escCode : highlighterFor(d.path);
+  return head + (v === "split" ? renderSplitBody(d, hl) : renderUnifiedBody(d, hl));
+}
+
+function renderUnifiedBody(d, hl) {
   let out = '<div class="diff">';
   for (const h of d.hunks) {
     out += `<div class="hunk-header">${esc(h.header)}</div>`;
@@ -663,7 +675,39 @@ function renderDiff(d) {
       out += `<div class="dline ${ln.tag}" data-anchor="${esc(anchor)}"><span class="ln">${ln.old == null ? "" : ln.old}</span><span class="ln">${ln.new == null ? "" : ln.new}</span><span class="sign">${sign}</span><span class="tx">${hl(ln.text) || "&nbsp;"}</span></div>`;
     }
   }
-  return head + out + "</div>";
+  return out + "</div>";
+}
+
+function renderSplitBody(d, hl) {
+  const cell = (side, ln) => {
+    // side: "l" (old) or "r" (new). ln null => empty filler cell.
+    if (!ln) return `<div class="dside empty"><span class="ln"></span><span class="tx"></span></div>`;
+    const cls = ln.tag === "del" ? "del" : ln.tag === "add" ? "add" : "";
+    const ref = side === "l" ? "L" + ln.num : "R" + ln.num;
+    return `<div class="dside ${cls}" data-anchor="${esc(d.path + "#" + ref)}"><span class="ln">${ln.num}</span><span class="tx">${hl(ln.text) || "&nbsp;"}</span></div>`;
+  };
+  let out = '<div class="diff split">';
+  for (const h of d.hunks) {
+    out += `<div class="hunk-header">${esc(h.header)}</div>`;
+    // pair runs of deletions with the following additions, side by side
+    let delBuf = [], addBuf = [];
+    const flush = () => {
+      const n = Math.max(delBuf.length, addBuf.length);
+      for (let i = 0; i < n; i++) {
+        out += `<div class="drow">${cell("l", delBuf[i] || null)}${cell("r", addBuf[i] || null)}</div>`;
+      }
+      delBuf = []; addBuf = [];
+    };
+    for (const ln of h.lines) {
+      if (ln.tag === "eq") {
+        flush();
+        out += `<div class="drow">${cell("l", { num: ln.old, text: ln.text, tag: "eq" })}${cell("r", { num: ln.new, text: ln.text, tag: "eq" })}</div>`;
+      } else if (ln.tag === "del") delBuf.push({ num: ln.old, text: ln.text, tag: "del" });
+      else if (ln.tag === "add") addBuf.push({ num: ln.new, text: ln.text, tag: "add" });
+    }
+    flush();
+  }
+  return out + "</div>";
 }
 
 /* ---------------- inline line comments (PR-review style) ----------------
@@ -697,20 +741,23 @@ async function postLineComment(anchor, text) {
   await notesApi(`/repos/${window.NOTES_REPO}/issues/${num}/comments`, { method: "POST", body: JSON.stringify({ body: `<!--cdx:${anchor}-->\n${text}` }) });
 }
 
+function rowOf(el) { return el.closest(".drow") || el; }  // split row container, else the line itself
+
 async function decorateLineComments(path) {
   if (!notesEnabled()) return;
   const pane = $("#pane-diff");
   if (!pane) return;
   const map = await getLineComments();
-  pane.querySelectorAll(".dline").forEach((dl) => {
-    const list = map.get(dl.getAttribute("data-anchor"));
-    if (list && list.length) { dl.classList.add("has-comments"); insertLineThread(dl, dl.getAttribute("data-anchor"), list); }
+  pane.querySelectorAll("[data-anchor]").forEach((el) => {
+    const anchor = el.getAttribute("data-anchor");
+    const list = map.get(anchor);
+    if (list && list.length) { el.classList.add("has-comments"); insertLineThread(rowOf(el), anchor, list); }
   });
   pane.onclick = (e) => {
     const rep = e.target.closest(".reply-c");
-    if (rep) { const box = rep.closest(".line-thread"); openLineComposer(box.previousElementSibling, box.dataset.anchor); return; }
-    const ln = e.target.closest(".dline .ln");
-    if (ln) { const dl = ln.closest(".dline"); openLineComposer(dl, dl.getAttribute("data-anchor")); }
+    if (rep) { const box = rep.closest(".line-thread"); openLineComposer(box.__rowEl || box.previousElementSibling, box.dataset.anchor); return; }
+    const ln = e.target.closest("[data-anchor] .ln");
+    if (ln) { const el = ln.closest("[data-anchor]"); openLineComposer(rowOf(el), el.getAttribute("data-anchor")); }
   };
 }
 
@@ -718,22 +765,27 @@ function threadNoteHtml(n) {
   return `<div class="note"><img class="note-av" src="${esc(n.avatar)}" width="22" height="22" alt=""><div class="note-main"><div class="note-head"><a href="https://github.com/${esc(n.login)}" target="_blank" rel="noopener"><b>${esc(n.login)}</b></a> <a href="${esc(n.url)}" target="_blank" rel="noopener" class="muted">${esc(relDate(n.date))}</a></div><div class="note-body">${noteText(n.text)}</div></div></div>`;
 }
 
-function insertLineThread(dl, anchor, list) {
-  let box = dl.nextElementSibling;
-  if (!(box && box.classList.contains("line-thread"))) {
+function insertLineThread(rowEl, anchor, list) {
+  // reuse this anchor's thread if present among the threads right after the row
+  let box = null, cur = rowEl.nextElementSibling;
+  while (cur && cur.classList.contains("line-thread")) { if (cur.dataset.anchor === anchor) { box = cur; break; } cur = cur.nextElementSibling; }
+  if (!box) {
     box = document.createElement("div");
     box.className = "line-thread";
-    dl.insertAdjacentElement("afterend", box);
+    box.dataset.anchor = anchor;
+    let insertAfter = rowEl, n = rowEl.nextElementSibling;
+    while (n && n.classList.contains("line-thread")) { insertAfter = n; n = n.nextElementSibling; }
+    insertAfter.insertAdjacentElement("afterend", box);
   }
-  box.dataset.anchor = anchor;
+  box.__rowEl = rowEl;
   box.innerHTML = list.map(threadNoteHtml).join("") + `<button class="reply-c">Reply</button>`;
 }
 
-function openLineComposer(dl, anchor) {
+function openLineComposer(rowEl, anchor) {
   if (!authState.token) { login(); return; }
-  const ref = dl.nextElementSibling && dl.nextElementSibling.classList.contains("line-thread") ? dl.nextElementSibling : dl;
-  const next = ref.nextElementSibling;
-  if (next && next.classList.contains("line-composer")) { next.querySelector("textarea").focus(); return; }
+  let ref = rowEl, n = rowEl.nextElementSibling;
+  while (n && (n.classList.contains("line-thread") || n.classList.contains("line-composer"))) { ref = n; n = n.nextElementSibling; }
+  if (ref.classList && ref.classList.contains("line-composer")) { ref.querySelector("textarea").focus(); return; }
   const box = document.createElement("div");
   box.className = "line-composer";
   box.innerHTML = `<textarea rows="2" placeholder="Comment on this line…"></textarea><div class="composer-row"><button class="cancel-c">Cancel</button><button class="primary post-c">Comment</button></div><div class="composer-status muted"></div>`;
@@ -750,8 +802,7 @@ function openLineComposer(dl, anchor) {
       cmp.lineComments = null;
       const map = await getLineComments();
       box.remove();
-      dl.classList.add("has-comments");
-      insertLineThread(dl, anchor, map.get(anchor) || []);
+      insertLineThread(rowEl, anchor, map.get(anchor) || []);
     } catch (e) { st.textContent = "error: " + e.message; btn.disabled = false; }
   };
 }
@@ -868,7 +919,7 @@ function renderAuth() {
     const lo = document.getElementById("logout");
     if (lo) lo.onclick = (e) => { e.preventDefault(); logout(); };
   } else {
-    slot.innerHTML = `<a href="#" id="login" class="signin">Sign in with GitHub</a>`;
+    slot.innerHTML = `<a href="#" id="login" class="signin">Sign in<span class="sm-hide"> with GitHub</span></a>`;
     const li = document.getElementById("login");
     if (li) li.onclick = (e) => { e.preventDefault(); login(); };
   }

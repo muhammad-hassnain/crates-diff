@@ -323,6 +323,56 @@ input:focus, select:focus, button:focus-visible {
 .line-composer .composer-row { display: flex; gap: 8px; margin-top: 8px; max-width: 640px; }
 .line-composer button { font-size: 13px; }
 
+/* unified/split view toggle */
+.view-toggle { margin-left: auto; display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; flex: none; }
+.view-toggle button { border: none; border-radius: 0; padding: 4px 11px; font-size: 12px; background: var(--surface); color: var(--muted); }
+.view-toggle button.active { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.view-toggle button:not(.active):hover { background: var(--bg-subtle); color: var(--text); }
+
+/* split (side-by-side) diff */
+.diff { overflow-x: auto; }
+.diff.split .drow { display: flex; }
+.diff.split .dside { display: flex; flex: 1 1 50%; min-width: 0; border-right: 1px solid var(--border-muted); }
+.diff.split .dside:last-child { border-right: none; }
+.diff.split .dside .ln { width: 40px; text-align: right; padding: 0 6px; color: var(--muted); user-select: none; flex: none; }
+.diff.split .dside .tx { padding: 0 8px; flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+.diff.split .dside.del { background: var(--del-bg); }
+.diff.split .dside.del .ln { background: var(--del-gutter); }
+.diff.split .dside.add { background: var(--add-bg); }
+.diff.split .dside.add .ln { background: var(--add-gutter); }
+.diff.split .dside.empty { background: var(--bg-subtle); }
+.diff.split .dside.has-comments { box-shadow: inset 3px 0 0 var(--accent); }
+.diff.split .dside[data-anchor]:hover .ln { cursor: pointer; color: var(--accent); background: #fbe9cf; }
+:root[data-theme="dark"] .diff.split .dside[data-anchor]:hover .ln { background: #3a2f1a; }
+
+/* GitHub header icon */
+.gh-link { color: var(--nav-muted); display: inline-flex; align-items: center; }
+.gh-link:hover { color: var(--nav-fg); }
+
+/* --- mobile / dynamic sizing --- */
+@media (max-width: 560px) {
+  :root { font-size: 14px; }
+  .topnav { gap: 10px; padding: 10px 12px; }
+  .topnav-links { gap: 12px; }
+  .signin { padding: 6px 10px; }
+  .sm-hide { display: none; }           /* shorten "Sign in with GitHub" -> "Sign in" */
+  .cmt-hint { display: none; }          /* keep the file header tidy on phones */
+  .file-head { flex-wrap: wrap; }
+  .hero { padding: 20px 0 8px; }
+  .hero h1 { font-size: 30px; }
+  .hero p { font-size: 14px; }
+  .search-box { padding: 5px 5px 5px 12px; }
+  .search-box input { font-size: 15px; }
+  .search-box button.primary { padding: 9px 14px; }
+  .landing, .results { padding-left: 16px; padding-right: 16px; }
+  .cmp-bar { padding: 10px 14px; gap: 8px; }
+  .cmp-bar .summary { margin-left: 0; width: 100%; }
+  .auth-user span { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (max-width: 400px) {
+  .brand span { display: none; }        /* logo-only brand on very small screens */
+}
+
 /* github */
 .commit { padding: 12px 16px; border-bottom: 1px solid var(--border-muted); }
 .commit .summary-line { font-weight: 600; }
