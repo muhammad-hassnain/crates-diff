@@ -10,7 +10,8 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-2XHH6VHZFN');
+    // SPA: send page_view manually per route (see trackPageView in app.js)
+    gtag('config', 'G-2XHH6VHZFN', { send_page_view: false });
   </script>
 
   <title>crates_diff — Rust crate diffs (crates.io) · a diff.rs alternative</title>
@@ -56,7 +57,7 @@
   </script>
 
   <script>try{var t=localStorage.getItem('crates_diff_theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
   <header class="topnav">
@@ -86,7 +87,7 @@
     </div>
   </main>
 
-  <script src="config.js?v=14"></script>
-  <script src="app.js?v=14"></script>
+  <script src="config.js?v=15"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

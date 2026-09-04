@@ -375,8 +375,24 @@ function parseRoute() {
   return { name: "landing" };
 }
 
+// Send a GA4 page_view for the current route. Hash routes are mapped to virtual
+// paths (e.g. /anyhow/1.0.103/1.0.104) so they show as distinct pages in GA4.
+function trackPageView() {
+  if (typeof window.gtag !== "function") return;
+  const r = parseRoute();
+  if (r.name === "crate") return;   // transient — redirects to the compare view we'll track
+  let path = "/", title = "crates_diff";
+  if (r.name === "about") { path = "/about"; title = "About · crates_diff"; }
+  else if (r.name === "search") { path = "/search/" + (r.q || ""); title = `Search: ${r.q || ""} · crates_diff`; }
+  else if (r.name === "crate") { path = "/" + r.crate; title = `${r.crate} · crates_diff`; }
+  else if (r.name === "compare") { path = `/${r.crate}/${r.from}/${r.to}`; title = `${r.crate} ${r.from}→${r.to} · crates_diff`; }
+  const base = location.origin + location.pathname.replace(/\/$/, "");
+  window.gtag("event", "page_view", { page_location: base + path, page_title: title });
+}
+
 async function route() {
   const r = parseRoute();
+  trackPageView();
   try {
     if (r.name === "landing") return renderLanding();
     if (r.name === "about") return renderAbout();
