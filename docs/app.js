@@ -1046,31 +1046,21 @@ function renderAbout() {
     <h2>About crates_diff</h2>
 
     <p><b>crates_diff</b> shows <b>full-source diffs between any two versions of a Rust
-    crate</b> — every file, not just what a changelog happens to mention. It's a free,
-    open-source, browser-based tool for <a href="https://crates.io" target="_blank" rel="noopener">crates.io</a>
+    crate</b>. It's a free, open-source, browser-based tool for <a href="https://crates.io" target="_blank" rel="noopener">crates.io</a>
     packages, in the spirit of <a href="https://diff.rs" target="_blank" rel="noopener">diff.rs</a>.</p>
 
-    <p>Everything runs in your browser — there's no backend doing the work. Crate tarballs
-    are downloaded straight from <span class="mono">static.crates.io</span>, then unpacked
-    (gzip + tar) and diffed locally with a Myers diff. You can:</p>
+    <p>Everything runs in your browser. You can:</p>
     <ul class="about-list">
-      <li>Search crates.io and pick any two versions — no semver filtering.</li>
+      <li>Search crates.io and pick any two versions.</li>
       <li>See every file's status and a full unified diff, with content search across the change.</li>
       <li>Browse the GitHub commit history between the two versions.</li>
-      <li>Leave <b>notes</b> on a crate or a specific version transition.</li>
+      <li>Leave <b>notes</b> on a crate or a specific version transition. (requires GitHub login to post comments)</li>
     </ul>
 
-    <h3>Who made this</h3>
-    <p>Built by <b>Muhammad Hassnain</b> —
-    <a href="https://muhammad-hassnain.github.io/" target="_blank" rel="noopener">portfolio</a> ·
-    <a href="mailto:mhassnain@ucdavis.edu">mhassnain@ucdavis.edu</a>.</p>
 
     <h3>Contribute</h3>
     <p>Contributions are very welcome — issues, ideas, and pull requests. The code lives at
-    <a href="https://github.com/muhammad-hassnain/crates-diff" target="_blank" rel="noopener">github.com/muhammad-hassnain/crates-diff</a>.
-    You can also add <b>notes</b> to any crate right here in the app: open a crate, pick two
-    versions, and use the <b>Notes</b> tab (sign in with GitHub to post — notes are shared with
-    everyone).</p>
+    <a href="https://github.com/muhammad-hassnain/crates-diff" target="_blank" rel="noopener">github.com/muhammad-hassnain/crates-diff</a>. You can find more about my work at my Portfolio <a href="https://muhammad-hassnain.github.io/" target="_blank" rel="noopener">muhammad-hassnain.github.io</a>. You can reach out to me via email at <a href="mailto:mhassnain@ucdavis.edu">mhassnain@ucdavis.edu</a>.</p>
   </div>`;
 }
 
