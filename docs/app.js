@@ -1043,7 +1043,7 @@ function saveNote(key, text, statusId) {
 function renderAbout() {
   view().innerHTML = `<div class="results about">
     <a class="back" href="#/">← home</a>
-    <h2>About crates_diff</h2>
+    <h2>About</h2>
 
     <p><b>crates_diff</b> shows <b>full-source diffs between any two versions of a Rust
     crate</b>. It's a free, open-source, browser-based tool for <a href="https://crates.io" target="_blank" rel="noopener">crates.io</a>
@@ -1059,7 +1059,7 @@ function renderAbout() {
 
 
     <h3>Contribute</h3>
-    <p>Contributions are very welcome — issues, ideas, and pull requests. The code lives at
+    <p>This is vibe coded. Contributions are very welcome, issues, ideas, and pull requests. The code lives at
     <a href="https://github.com/muhammad-hassnain/crates-diff" target="_blank" rel="noopener">github.com/muhammad-hassnain/crates-diff</a>. You can find more about my work at my Portfolio <a href="https://muhammad-hassnain.github.io/" target="_blank" rel="noopener">muhammad-hassnain.github.io</a>. You can reach out to me via email at <a href="mailto:mhassnain@ucdavis.edu">mhassnain@ucdavis.edu</a>.</p>
   </div>`;
 }
