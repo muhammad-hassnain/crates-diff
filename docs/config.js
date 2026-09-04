@@ -15,8 +15,8 @@ window.GH_PROXY = "https://crates-diff-gh-proxy.m-hassnain-gee.workers.dev";
 // https://github.com/settings/developers — Authorization callback URL must be this
 // site's URL (e.g. https://muhammad-hassnain.github.io/crates-diff/). The matching
 // client SECRET goes in the Worker, never here.
-window.GH_OAUTH_CLIENT_ID = "";
+window.GH_OAUTH_CLIENT_ID = "Ov23liwkjrNTo1e3S1tr";
 
 // "owner/repo" that stores the notes (issues enabled). Notes are posted as the
 // signed-in visitor. e.g. "muhammad-hassnain/crates-diff-notes"
-window.NOTES_REPO = "";
+window.NOTES_REPO = "muhammad-hassnain/crates-diff-notes";

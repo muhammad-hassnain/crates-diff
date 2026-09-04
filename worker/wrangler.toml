@@ -2,5 +2,10 @@ name = "crates-diff-gh-proxy"
 main = "src/index.js"
 compatibility_date = "2024-11-01"
 
-# The GitHub token is NOT stored here — it's a secret set with:
-#   npx wrangler secret put GITHUB_TOKEN
+# The OAuth Client ID is public, so it lives here as a plain var.
+[vars]
+GITHUB_OAUTH_CLIENT_ID = "Ov23liwkjrNTo1e3S1tr"
+
+# Secrets are NOT stored here — set them with `npx wrangler secret put <NAME>`:
+#   GITHUB_OAUTH_CLIENT_SECRET   (the OAuth app's client secret)
+#   GITHUB_TOKEN                 (optional, read-only History-tab proxy)
