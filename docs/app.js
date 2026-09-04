@@ -940,8 +940,14 @@ function clearUserToken() { try { localStorage.removeItem(USER_TOKEN_KEY); } cat
 function login() {
   const cid = window.GH_OAUTH_CLIENT_ID;
   const redirect = location.origin + location.pathname;   // must match the OAuth app's callback URL
-  const state = encodeURIComponent(location.hash || "#/");
-  location.href = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(cid)}&scope=public_repo&redirect_uri=${encodeURIComponent(redirect)}&state=${state}`;
+  // Random, unguessable state (anti-CSRF), stashed in sessionStorage and verified on
+  // return so an attacker can't forge the callback / inject their own code.
+  const nonce = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now();
+  try {
+    sessionStorage.setItem("crates_diff_oauth_state", nonce);
+    sessionStorage.setItem("crates_diff_oauth_return", location.hash || "#/");
+  } catch (_) {}
+  location.href = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(cid)}&scope=public_repo&redirect_uri=${encodeURIComponent(redirect)}&state=${encodeURIComponent(nonce)}`;
 }
 function logout() { clearUserToken(); renderAuth(); if (parseRoute().name === "compare") loadNotes(); }
 
@@ -950,15 +956,24 @@ async function handleOAuthCallback() {
   const params = new URLSearchParams(location.search);
   const code = params.get("code");
   if (!code) return;
-  const state = params.get("state") || "#/";
+  const returnedState = params.get("state") || "";
+  let expected = null, ret = "#/";
+  try {
+    expected = sessionStorage.getItem("crates_diff_oauth_state");
+    ret = sessionStorage.getItem("crates_diff_oauth_return") || "#/";
+    sessionStorage.removeItem("crates_diff_oauth_state");
+    sessionStorage.removeItem("crates_diff_oauth_return");
+  } catch (_) {}
+  const cleanUrl = location.origin + location.pathname + (ret || "#/");
+  // Anti-CSRF: only exchange the code if the returned state matches our stored nonce.
+  if (!expected || returnedState !== expected) { history.replaceState(null, "", cleanUrl); return; }
   const proxy = (window.GH_PROXY || "").trim().replace(/\/$/, "");
   try {
     const r = await fetch(`${proxy}/oauth/token?code=${encodeURIComponent(code)}`);
     const d = await r.json();
     if (d.access_token) setUserToken(d.access_token);
   } catch (_) {}
-  // Drop the ?code=... and restore the route we were on.
-  history.replaceState(null, "", location.origin + location.pathname + (decodeURIComponent(state) || "#/"));
+  history.replaceState(null, "", cleanUrl);   // drop ?code=... and restore the route
 }
 
 async function loadUser() {

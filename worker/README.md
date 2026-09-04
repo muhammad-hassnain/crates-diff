@@ -37,7 +37,11 @@ npx wrangler deploy
 npx wrangler secret put GITHUB_OAUTH_CLIENT_ID       # paste the Client ID
 npx wrangler secret put GITHUB_OAUTH_CLIENT_SECRET   # paste the Client secret
 # optional — raises the History tab's rate limit:
-npx wrangler secret put GITHUB_TOKEN                  # a classic token, public_repo scope
+# Prefer a FINE-GRAINED token: "Public repositories (read-only)" — no account/private
+# access. (A classic `public_repo` token also works but grants write to all your public
+# repos; avoid a classic token with the `repo` scope, or the proxy could read your
+# private repos' tags/compare.)
+npx wrangler secret put GITHUB_TOKEN
 ```
 `deploy` prints the Worker URL, e.g.
 `https://crates-diff-gh-proxy.<your-subdomain>.workers.dev`.

@@ -37,6 +37,12 @@ export default {
 
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
+    // Defense-in-depth: only serve allow-listed browser origins. Blocks other sites'
+    // browsers and casual scripted abuse from burning the token's rate limit. (Origin
+    // is spoofable by a determined non-browser caller, so pair with a Cloudflare
+    // rate-limiting rule for real abuse protection.)
+    if (!ALLOWED_ORIGINS.includes(origin)) return json({ error: "forbidden origin" }, 403, cors);
+
     // ---- OAuth code -> token exchange ----
     if (url.pathname === "/oauth/token") {
       if (request.method !== "GET") return json({ error: "only GET" }, 405, cors);
