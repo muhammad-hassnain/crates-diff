@@ -1058,9 +1058,8 @@ function renderAbout() {
       <li>Leave <b>notes</b> on a crate or a specific version transition. (requires GitHub login to post comments)</li>
     </ul>
 
-
     <h3>Contribute</h3>
-    <p>This is vibe coded. Contributions are very welcome, issues, ideas, and pull requests. The code lives at
+    <p>This is vibe coded. Contributions are very welcome. The code lives at
     <a href="https://github.com/muhammad-hassnain/crates-diff" target="_blank" rel="noopener">github.com/muhammad-hassnain/crates-diff</a>. You can find more about my work at my Portfolio <a href="https://muhammad-hassnain.github.io/" target="_blank" rel="noopener">muhammad-hassnain.github.io</a>. You can reach out to me via email at <a href="mailto:mhassnain@ucdavis.edu">mhassnain@ucdavis.edu</a>.</p>
   </div>`;
 }
