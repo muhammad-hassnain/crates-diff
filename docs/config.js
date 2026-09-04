@@ -5,7 +5,7 @@
 // (History tab) and the /oauth/token endpoint (Sign in with GitHub). Leave "" and
 // the History tab falls back to unauthenticated GitHub (60/hr) and login is disabled.
 //   e.g. "https://crates-diff-gh-proxy.your-name.workers.dev"
-window.GH_PROXY = "";
+window.GH_PROXY = "https://crates-diff-gh-proxy.m-hassnain-gee.workers.dev";
 
 // --- Notes-as-GitHub-issues (optional) ---
 // Set BOTH of these to turn on shared, attributed notes stored as issue comments.
