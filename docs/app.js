@@ -460,6 +460,24 @@ function wireSearchForm() {
 /* ============================================================= *
  *  SEARCH RESULTS
  * ============================================================= */
+// Re-rank so name matches win over popularity: exact name, then prefix, then
+// substring, then the rest — ties broken by downloads. (crates.io's raw sorts put a
+// more-downloaded crate that merely *contains* the query above the exact match.)
+function rankCrates(crates, q) {
+  const ql = q.trim().toLowerCase();
+  const tier = (c) => {
+    const n = (c.name || "").toLowerCase();
+    if (n === ql) return 0;
+    if (n.startsWith(ql)) return 1;
+    if (n.includes(ql)) return 2;
+    return 3;
+  };
+  return crates.slice().sort((a, b) => {
+    const t = tier(a) - tier(b);
+    return t !== 0 ? t : (b.downloads || 0) - (a.downloads || 0);
+  });
+}
+
 async function renderSearch(q) {
   view().innerHTML = `<div class="results">
     <a class="back" href="#/">← home</a>
@@ -468,10 +486,12 @@ async function renderSearch(q) {
   </div>`;
   wireSearchForm();
   try {
-    const { crates } = await fetchJson(`${CRATES_API}/crates?q=${encodeURIComponent(q)}&per_page=30&sort=downloads`);
+    // relevance sort keeps exact matches in the result set even when low-download;
+    // rankCrates then guarantees the exact/prefix match lands on top.
+    const { crates } = await fetchJson(`${CRATES_API}/crates?q=${encodeURIComponent(q)}&per_page=30&sort=relevance`);
     const box = $("#hits");
     if (!crates || !crates.length) { box.innerHTML = '<div class="empty">no matches</div>'; return; }
-    box.innerHTML = crates.map((c) => `<a class="result-row" href="#/${encodeURIComponent(c.name)}">
+    box.innerHTML = rankCrates(crates, q).map((c) => `<a class="result-row" href="#/${encodeURIComponent(c.name)}">
       <div class="head"><span class="name">${esc(c.name)}</span><span class="meta">v${esc(c.max_version)} · ${(c.downloads || 0).toLocaleString()} downloads</span></div>
       <div class="desc">${esc(c.description || "")}</div></a>`).join("");
   } catch (err) {
