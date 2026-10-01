@@ -520,6 +520,9 @@ async function renderCompare(name, from, to) {
 
   view().innerHTML = `<div class="compare">
     <div class="cmp-bar">
+      <button class="files-toggle" id="files-toggle" aria-expanded="false" aria-controls="file-list" title="Show the file list">
+        <span aria-hidden="true">☰</span> Files
+      </button>
       <div class="crate-name"><a href="#/${encodeURIComponent(name)}">${esc(name)}</a></div>
       <div class="cmp-vers">
         <div class="ver-picker" id="pick-from"></div>
@@ -564,6 +567,11 @@ async function renderCompare(name, from, to) {
   buildVersionPicker($("#pick-from"), versions, from, (v) => navTo(cmp.crate, v, cmp.to));
   buildVersionPicker($("#pick-to"), versions, to, (v) => navTo(cmp.crate, cmp.from, v));
   $("#swap").addEventListener("click", () => navTo(cmp.crate, cmp.to, cmp.from));
+  const ft = $("#files-toggle");
+  if (ft) ft.addEventListener("click", () => {
+    const on = document.querySelector(".compare").classList.toggle("show-files");
+    ft.setAttribute("aria-expanded", on ? "true" : "false");
+  });
   $("#content-search").addEventListener("keydown", (e) => { if (e.key === "Enter") contentSearch(); });
   const tabEls = [...$("#tabs").querySelectorAll(".tab")];
   tabEls.forEach((t, i) => {
@@ -741,6 +749,13 @@ function renderFileList(files) {
 function openFile(path) {
   cmp.path = path;
   document.querySelectorAll(".file-row").forEach((r) => r.classList.toggle("active", r.dataset.path === path));
+  // on phones, collapse the file drawer so the diff gets the full viewport
+  if (window.innerWidth < 900) {
+    const cmpEl = document.querySelector(".compare");
+    if (cmpEl) cmpEl.classList.remove("show-files");
+    const ft = $("#files-toggle");
+    if (ft) ft.setAttribute("aria-expanded", "false");
+  }
   switchTab("diff");
   const d = computeFileDiff(cmp.aMap, cmp.bMap, path);
   setPane("diff", d ? renderDiff(d) : '<div class="empty">file not found</div>');

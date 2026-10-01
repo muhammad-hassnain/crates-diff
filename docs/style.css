@@ -292,6 +292,9 @@ input:focus, select:focus, button:focus-visible {
 .cmp-bar .swap { padding: 8px 10px; line-height: 1; }
 .cmp-bar .summary { margin-left: auto; color: var(--muted); font-size: 13px; }
 .cmp-bar .summary b { color: var(--text); }
+/* "Files" drawer toggle — desktop shows the tree permanently, so hide it there */
+.files-toggle { display: none; align-items: center; gap: 6px; font-weight: 600; padding: 7px 11px; }
+.files-toggle[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
 .cmp-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 340px 1fr; }
 .cmp-side { border-right: 1px solid var(--border-muted); min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -467,10 +470,14 @@ input:focus, select:focus, button:focus-visible {
 @media (max-width: 900px) {
   .columns { grid-template-columns: 1fr; }
   .cmp-body { grid-template-columns: 1fr; }
-  .cmp-side { max-height: 38vh; border-right: none; border-bottom: 1px solid var(--border-muted); }
+  .cmp-side { border-right: none; border-bottom: 1px solid var(--border-muted); }
   /* keep the version bar + tabs in reach while scrolling the stacked layout */
   .cmp-bar { position: sticky; top: 0; z-index: 6; }
   .tabs { position: sticky; top: 0; z-index: 5; }
+  /* the file tree is a drawer: collapsed by default so the diff owns the screen */
+  .files-toggle { display: inline-flex; }
+  .compare:not(.show-files) .cmp-side { display: none; }
+  .compare.show-files .cmp-side { display: flex; max-height: 62vh; }
 }
 
 /* side-by-side diff is unreadable in a ~160px column — force unified on phones */
