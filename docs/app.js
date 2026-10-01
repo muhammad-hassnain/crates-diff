@@ -522,10 +522,10 @@ async function renderCompare(name, from, to) {
     <div class="cmp-bar">
       <div class="crate-name"><a href="#/${encodeURIComponent(name)}">${esc(name)}</a></div>
       <div class="cmp-vers">
-        <select id="ver-from"></select>
+        <div class="ver-picker" id="pick-from"></div>
         <button class="swap" id="swap" title="Swap from ⇄ to" aria-label="Swap the two versions">⇄</button>
         <span class="arrow">→</span>
-        <select id="ver-to"></select>
+        <div class="ver-picker" id="pick-to"></div>
       </div>
       <div class="summary" id="summary"></div>
     </div>
@@ -561,17 +561,9 @@ async function renderCompare(name, from, to) {
     from = versions[1] ? versions[1].num : to;
     cmp.from = from; cmp.to = to;
   }
-  const fromSel = $("#ver-from"), toSel = $("#ver-to");
-  for (const v of versions) {
-    const label = v.num + (v.yanked ? "  (yanked)" : "");
-    fromSel.appendChild(new Option(label, v.num));
-    toSel.appendChild(new Option(label, v.num));
-  }
-  fromSel.value = from; toSel.value = to;
-
-  fromSel.addEventListener("change", onVersionChange);
-  toSel.addEventListener("change", onVersionChange);
-  $("#swap").addEventListener("click", () => { const f = $("#ver-from"), t = $("#ver-to"); [f.value, t.value] = [t.value, f.value]; onVersionChange(); });
+  buildVersionPicker($("#pick-from"), versions, from, (v) => navTo(cmp.crate, v, cmp.to));
+  buildVersionPicker($("#pick-to"), versions, to, (v) => navTo(cmp.crate, cmp.from, v));
+  $("#swap").addEventListener("click", () => navTo(cmp.crate, cmp.to, cmp.from));
   $("#content-search").addEventListener("keydown", (e) => { if (e.key === "Enter") contentSearch(); });
   const tabEls = [...$("#tabs").querySelectorAll(".tab")];
   tabEls.forEach((t, i) => {
@@ -590,10 +582,57 @@ async function renderCompare(name, from, to) {
   await loadDiff();
 }
 
-function onVersionChange() {
-  const from = $("#ver-from").value, to = $("#ver-to").value;
+function navTo(crate, from, to) {
   if (!from || !to) return;
-  location.hash = `#/${encodeURIComponent(cmp.crate)}/${encodeURIComponent(from)}/${encodeURIComponent(to)}`;
+  location.hash = `#/${encodeURIComponent(crate)}/${encodeURIComponent(from)}/${encodeURIComponent(to)}`;
+}
+
+// Filterable version combobox — native <select> is unusable for crates with
+// hundreds of releases (serde, tokio). Type to filter; arrows/Enter to pick.
+function buildVersionPicker(container, versions, current, onPick) {
+  if (!container) return;
+  container.innerHTML = `
+    <button type="button" class="ver-trigger" aria-haspopup="listbox" aria-expanded="false" title="${esc(current)}">
+      <span class="ver-cur">${esc(current)}</span><span class="ver-caret" aria-hidden="true">▾</span>
+    </button>
+    <div class="ver-pop" hidden>
+      <input type="text" class="ver-filter" placeholder="Filter versions…" aria-label="Filter versions" autocomplete="off" spellcheck="false">
+      <ul class="ver-list" role="listbox"></ul>
+    </div>`;
+  const trigger = container.querySelector(".ver-trigger");
+  const pop = container.querySelector(".ver-pop");
+  const filter = container.querySelector(".ver-filter");
+  const list = container.querySelector(".ver-list");
+  let open = false, active = -1, filtered = versions.slice();
+
+  const draw = () => {
+    const q = filter.value.trim().toLowerCase();
+    filtered = q ? versions.filter((v) => v.num.toLowerCase().includes(q)) : versions.slice();
+    list.innerHTML = filtered.length
+      ? filtered.map((v) => `<li role="option" class="ver-opt${v.num === current ? " sel" : ""}" data-v="${esc(v.num)}" aria-selected="${v.num === current ? "true" : "false"}"><span>${esc(v.num)}</span>${v.yanked ? '<span class="ver-yanked">yanked</span>' : ""}</li>`).join("")
+      : '<li class="ver-empty">no matching version</li>';
+    active = filtered.findIndex((v) => v.num === current);
+    paint();
+  };
+  const paint = () => {
+    const opts = list.querySelectorAll(".ver-opt");
+    opts.forEach((o, i) => o.classList.toggle("active", i === active));
+    if (active >= 0 && opts[active]) opts[active].scrollIntoView({ block: "nearest" });
+  };
+  const onDoc = (e) => { if (!container.contains(e.target)) close(); };
+  const openPop = () => { open = true; pop.hidden = false; trigger.setAttribute("aria-expanded", "true"); filter.value = ""; draw(); filter.focus(); document.addEventListener("click", onDoc); };
+  const close = () => { if (!open) return; open = false; pop.hidden = true; trigger.setAttribute("aria-expanded", "false"); document.removeEventListener("click", onDoc); };
+  const choose = (v) => { close(); if (v && v !== current) onPick(v); };
+
+  trigger.onclick = () => (open ? close() : openPop());
+  filter.oninput = draw;
+  filter.onkeydown = (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); active = Math.min(active + 1, filtered.length - 1); paint(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); active = Math.max(active - 1, 0); paint(); }
+    else if (e.key === "Enter") { e.preventDefault(); if (filtered[active]) choose(filtered[active].num); }
+    else if (e.key === "Escape") { e.preventDefault(); close(); trigger.focus(); }
+  };
+  list.onclick = (e) => { const li = e.target.closest(".ver-opt"); if (li) choose(li.dataset.v); };
 }
 
 async function loadDiff() {

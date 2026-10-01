@@ -249,8 +249,46 @@ input:focus, select:focus, button:focus-visible {
 .cmp-bar .crate-name { font-size: 18px; font-weight: 700; }
 .cmp-bar .crate-name a { color: var(--text); }
 .cmp-vers { display: flex; align-items: center; gap: 8px; }
-.cmp-vers select { width: auto; min-width: 130px; }
 .cmp-vers .arrow { color: var(--muted); }
+
+/* filterable version combobox (replaces native <select>) */
+.ver-picker { position: relative; }
+.ver-trigger {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-width: 132px; max-width: 220px; font-family: inherit; font-size: 14px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.ver-trigger:hover { background: var(--surface); border-color: var(--accent); }
+.ver-trigger .ver-cur { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ver-trigger .ver-caret { color: var(--muted); font-size: 10px; flex: none; }
+.ver-trigger[aria-expanded="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); }
+.ver-pop {
+  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: max-content;
+  min-width: 100%; max-width: 280px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow-hover); padding: 6px;
+}
+.ver-filter {
+  width: 100%; font-family: inherit; font-size: 13px; margin-bottom: 6px;
+  background: var(--bg-subtle); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+}
+.ver-filter:focus { outline: 2px solid var(--focus); border-color: var(--accent); }
+.ver-list { list-style: none; margin: 0; padding: 0; max-height: 264px; overflow-y: auto; }
+.ver-opt {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 6px 9px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.ver-opt:hover, .ver-opt.active { background: var(--accent-soft); }
+.ver-opt.sel { font-weight: 700; color: var(--accent); }
+.ver-yanked {
+  flex: none; font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--badge-del); border: 1px solid var(--badge-del); border-radius: 10px; padding: 0 5px;
+}
+.ver-empty { padding: 8px 9px; color: var(--muted); font-size: 13px; }
 .cmp-bar .swap { padding: 8px 10px; line-height: 1; }
 .cmp-bar .summary { margin-left: auto; color: var(--muted); font-size: 13px; }
 .cmp-bar .summary b { color: var(--text); }
