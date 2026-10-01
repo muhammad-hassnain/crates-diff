@@ -231,6 +231,23 @@ input:focus, select:focus, button:focus-visible {
 .result-row .meta { color: var(--muted); font-size: 13px; }
 .result-row .desc { color: var(--muted); font-size: 13px; margin-top: 4px; }
 
+/* static SEO / no-JS landing content (replaced by the app when JS runs) */
+.seo-content { max-width: 760px; margin: 28px auto 0; line-height: 1.65; }
+.seo-content h2 { font-size: 21px; margin: 30px 0 10px; }
+.seo-content h3 { font-size: 16px; margin: 22px 0 6px; }
+.seo-content p { margin: 0 0 12px; color: var(--text); }
+.seo-content ul { margin: 0 0 14px; padding-left: 20px; }
+.seo-content li { margin: 5px 0; }
+.seo-content code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; background: var(--bg-subtle); border: 1px solid var(--border-muted); border-radius: 5px; padding: 1px 5px; }
+.seo-links { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding-left: 0 !important; }
+.seo-links li { margin: 0; }
+.seo-links a {
+  display: inline-block; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 5px 13px; font-size: 13px; font-weight: 600;
+}
+.seo-links a:hover { text-decoration: none; border-color: var(--accent); color: var(--accent); }
+.seo-cta { margin-top: 18px; font-weight: 600; }
+
 /* about page */
 .about { line-height: 1.65; }
 .about h2 { margin: 14px 0 16px; }

@@ -21,6 +21,14 @@
   <link rel="canonical" href="https://muhammad-hassnain.github.io/crates-diff/">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="theme-color" content="#1a1300">
+  <!-- let LLMs find the plain-text site map -->
+  <link rel="alternate" type="text/markdown" href="https://muhammad-hassnain.github.io/crates-diff/llms.txt" title="llms.txt">
+  <!-- the app fetches crate data from crates.io at runtime; warm the connections early -->
+  <link rel="preconnect" href="https://crates.io" crossorigin>
+  <link rel="preconnect" href="https://static.crates.io" crossorigin>
 
   <!-- Open Graph / Twitter -->
   <meta property="og:type" content="website">
@@ -41,11 +49,24 @@
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "crates_diff",
-    "alternateName": "crates diff",
+    "alternateName": ["crates diff", "crates_diff viewer"],
     "url": "https://muhammad-hassnain.github.io/crates-diff/",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Any (web browser)",
-    "description": "View full-source diffs between any two versions of a Rust crate from crates.io — a browser-based, open-source alternative to diff.rs.",
+    "browserRequirements": "Requires JavaScript.",
+    "softwareHelp": "https://muhammad-hassnain.github.io/crates-diff/#/about",
+    "image": "https://muhammad-hassnain.github.io/crates-diff/logo.png",
+    "description": "View full-source diffs between any two versions of a Rust crate from crates.io — a free, open-source, browser-based alternative to diff.rs. Search crates, compare versions file by file, browse GitHub history, and leave review notes.",
+    "featureList": [
+      "Full-source, file-by-file diff between any two crate versions",
+      "Unified and side-by-side (split) diff views with syntax highlighting",
+      "Content search across a version transition",
+      "GitHub commit history between the two version tags",
+      "PR-style notes and inline line comments",
+      "Diff against unpublished / local crate versions"
+    ],
+    "keywords": "rust, crates.io, crate diff, diff.rs alternative, compare crate versions, cargo, semver, dependency audit",
+    "isAccessibleForFree": true,
     "author": {
       "@type": "Person",
       "name": "Muhammad Hassnain",
@@ -55,9 +76,42 @@
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
   </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is crates_diff?",
+        "acceptedAnswer": { "@type": "Answer", "text": "crates_diff is a free, open-source, browser-based tool that shows the full source diff between any two versions of a Rust crate published on crates.io. It downloads the crate tarballs from static.crates.io and diffs them entirely in your browser — nothing is installed and no code is sent to a server." }
+      },
+      {
+        "@type": "Question",
+        "name": "How is crates_diff different from diff.rs?",
+        "acceptedAnswer": { "@type": "Answer", "text": "crates_diff is an actively maintained, open-source alternative to diff.rs. It adds a file tree that defaults to only changed files, unified and side-by-side diff views, content search across a transition, GitHub commit history between the two version tags, and PR-style review notes. It also works for crates where diff.rs fails to load." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is crates_diff free and open source?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. crates_diff is completely free and its source is on GitHub at github.com/muhammad-hassnain/crates-diff under an open-source license." }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I need to install anything to compare Rust crate versions?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. crates_diff runs fully in the browser. Open the site, search a crate, pick two versions, and the diff loads. There is also an optional local CLI build for auditing unpublished versions." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I diff against an unpublished or local version of a crate?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes, with the local build. Run the viewer locally and import a crate source tree with 'crates_diff add-local <crate> <version> <path>', and the imported version appears in the version list next to the published ones." }
+      }
+    ]
+  }
+  </script>
 
   <script>try{var t=localStorage.getItem('crates_diff_theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
   <header class="topnav">
@@ -76,18 +130,87 @@
   </header>
 
   <main id="view">
-    <div class="loading">
-      <noscript>
-        <h1>crates_diff</h1>
+    <!-- Static, crawlable content. Visitors with JavaScript get the interactive
+         app (app.js replaces this on load); search engines, LLM crawlers that
+         don't run JS, and no-JS visitors read the real description below. -->
+    <div class="landing">
+      <div class="hero">
+        <img class="hero-logo" src="logo.png" width="104" height="104" alt="crates_diff logo">
+        <h1><b>crates</b>_diff</h1>
         <p>Full-source diffs between any two versions of a Rust crate from crates.io —
-        an open-source, browser-based alternative to diff.rs. This tool needs JavaScript
-        enabled.</p>
-      </noscript>
-      loading…
+        a free, open-source, browser-based alternative to diff.rs.</p>
+      </div>
+
+      <section class="seo-content">
+        <h2>Compare any two versions of a Rust crate, file by file</h2>
+        <p><strong>crates_diff</strong> downloads the real crate tarballs from
+        <code>static.crates.io</code> and shows a complete, file-by-file source diff
+        between any two published versions — right in your browser, with nothing to
+        install. Use it to audit a dependency update, review exactly what changed
+        before you bump a version in <code>Cargo.toml</code>, or understand a security
+        advisory in a Rust package.</p>
+
+        <h3>What you can do with crates_diff</h3>
+        <ul>
+          <li><strong>Whole-crate diff</strong> — every file marked added, removed,
+          modified, or unchanged, with per-file line counts and a full unified or
+          side-by-side diff with Rust syntax highlighting.</li>
+          <li><strong>Search inside the change</strong> — jump to every line that
+          mentions a symbol across the version transition.</li>
+          <li><strong>GitHub history</strong> — the commits between the two versions'
+          git tags.</li>
+          <li><strong>Notes &amp; line comments</strong> — leave PR-style review notes
+          on a crate or a specific upgrade.</li>
+          <li><strong>Local versions</strong> — diff a published release against an
+          unpublished crate source tree you import locally.</li>
+        </ul>
+
+        <h3>Popular Rust crates to compare</h3>
+        <ul class="seo-links">
+          <li><a href="#/serde">serde diff</a></li>
+          <li><a href="#/tokio">tokio diff</a></li>
+          <li><a href="#/clap">clap diff</a></li>
+          <li><a href="#/syn">syn diff</a></li>
+          <li><a href="#/rand">rand diff</a></li>
+          <li><a href="#/reqwest">reqwest diff</a></li>
+          <li><a href="#/anyhow">anyhow diff</a></li>
+          <li><a href="#/regex">regex diff</a></li>
+        </ul>
+
+        <h2>Frequently asked questions</h2>
+        <h3>What is crates_diff?</h3>
+        <p>crates_diff is a free, open-source, browser-based tool that shows the full
+        source diff between any two versions of a Rust crate published on crates.io. It
+        downloads the crate tarballs and diffs them entirely in your browser — nothing
+        is installed and no code is sent to a server.</p>
+
+        <h3>How is it different from diff.rs?</h3>
+        <p>crates_diff is an actively maintained, open-source alternative to diff.rs. It
+        defaults the file tree to only changed files, offers unified and side-by-side
+        diffs, content search across a transition, GitHub commit history, and PR-style
+        review notes — and it works for many crates where diff.rs fails to load.</p>
+
+        <h3>Is it free and open source?</h3>
+        <p>Yes. crates_diff is completely free, and the source is on
+        <a href="https://github.com/muhammad-hassnain/crates-diff" rel="noopener">GitHub</a>.</p>
+
+        <h3>Do I need to install anything?</h3>
+        <p>No — it runs fully in the browser. Search a crate, pick two versions, and the
+        diff loads. There is also an optional local CLI build for auditing unpublished
+        versions.</p>
+
+        <h3>Can I diff against an unpublished version of a crate?</h3>
+        <p>Yes, with the local build: import a crate source tree with
+        <code>crates_diff add-local &lt;crate&gt; &lt;version&gt; &lt;path&gt;</code> and
+        it appears in the version list next to the published releases.</p>
+
+        <p class="seo-cta"><a href="#/about">Read more about crates_diff →</a></p>
+        <p class="muted">Loading the interactive app… if it doesn't appear, enable JavaScript.</p>
+      </section>
     </div>
   </main>
 
-  <script src="config.js?v=20"></script>
-  <script src="app.js?v=20"></script>
+  <script src="config.js?v=21"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>
