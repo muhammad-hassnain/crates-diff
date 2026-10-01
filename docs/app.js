@@ -516,14 +516,14 @@ async function redirectCrate(name) {
 const cmp = {};
 
 async function renderCompare(name, from, to) {
-  Object.assign(cmp, { crate: name, from, to, versions: [], aMap: null, bMap: null, files: [], path: null, tab: "diff", githubLoaded: null });
+  Object.assign(cmp, { crate: name, from, to, versions: [], aMap: null, bMap: null, files: [], path: null, tab: "diff", githubLoaded: null, showUnchanged: false });
 
   view().innerHTML = `<div class="compare">
     <div class="cmp-bar">
       <div class="crate-name"><a href="#/${encodeURIComponent(name)}">${esc(name)}</a></div>
       <div class="cmp-vers">
         <select id="ver-from"></select>
-        <button class="swap" id="swap" title="Swap from ⇄ to">⇄</button>
+        <button class="swap" id="swap" title="Swap from ⇄ to" aria-label="Swap the two versions">⇄</button>
         <span class="arrow">→</span>
         <select id="ver-to"></select>
       </div>
@@ -536,15 +536,15 @@ async function renderCompare(name, from, to) {
         <div class="file-list" id="file-list"><div class="spinner">downloading & diffing…</div></div>
       </div>
       <div class="cmp-main">
-        <div class="tabs" id="tabs">
-          <div class="tab active" data-tab="diff">Diff</div>
-          <div class="tab" data-tab="github">GitHub</div>
-          <div class="tab" data-tab="notes">Notes</div>
+        <div class="tabs" id="tabs" role="tablist" aria-label="Compare views">
+          <div class="tab active" role="tab" id="tab-diff" data-tab="diff" tabindex="0" aria-selected="true" aria-controls="pane-diff">Diff</div>
+          <div class="tab" role="tab" id="tab-github" data-tab="github" tabindex="-1" aria-selected="false" aria-controls="pane-github">GitHub</div>
+          <div class="tab" role="tab" id="tab-notes" data-tab="notes" tabindex="-1" aria-selected="false" aria-controls="pane-notes">Notes</div>
         </div>
         <div class="tabpanes">
-          <div class="tabpane active" id="pane-diff"><div class="empty">Select a file to view its diff.</div></div>
-          <div class="tabpane" id="pane-github"><div class="empty">Commit history for this transition appears here.</div></div>
-          <div class="tabpane" id="pane-notes"></div>
+          <div class="tabpane active" id="pane-diff" role="tabpanel" aria-labelledby="tab-diff" tabindex="0"><div class="empty">Select a file to view its diff.</div></div>
+          <div class="tabpane" id="pane-github" role="tabpanel" aria-labelledby="tab-github" tabindex="0"><div class="empty">Commit history for this transition appears here.</div></div>
+          <div class="tabpane" id="pane-notes" role="tabpanel" aria-labelledby="tab-notes" tabindex="0"></div>
         </div>
       </div>
     </div>
@@ -573,7 +573,18 @@ async function renderCompare(name, from, to) {
   toSel.addEventListener("change", onVersionChange);
   $("#swap").addEventListener("click", () => { const f = $("#ver-from"), t = $("#ver-to"); [f.value, t.value] = [t.value, f.value]; onVersionChange(); });
   $("#content-search").addEventListener("keydown", (e) => { if (e.key === "Enter") contentSearch(); });
-  $("#tabs").querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
+  const tabEls = [...$("#tabs").querySelectorAll(".tab")];
+  tabEls.forEach((t, i) => {
+    t.addEventListener("click", () => switchTab(t.dataset.tab));
+    t.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); switchTab(t.dataset.tab); }
+      else if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        const next = tabEls[(i + (e.key === "ArrowRight" ? 1 : -1) + tabEls.length) % tabEls.length];
+        switchTab(next.dataset.tab); next.focus();
+      }
+    });
+  });
 
   loadNotes();
   await loadDiff();
@@ -596,7 +607,7 @@ async function loadDiff() {
     cmp.aMap = aMap; cmp.bMap = bMap;
     const data = computeFileList(aMap, bMap);
     cmp.files = data.files;
-    $("#file-summary").innerHTML = `${data.changed} changed / ${data.total} files`;
+    renderFileSummary();
     $("#summary").innerHTML = `<b>${esc(from)}</b> → <b>${esc(to)}</b> · ${data.changed} changed`;
     renderFileList(cmp.files);
     const firstChanged = cmp.files.find((f) => f.status !== "unchanged");
@@ -637,33 +648,53 @@ function renderTreeChildren(node, depth) {
   const kids = [...node.children.values()].sort((a, b) => (a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   let out = "";
   for (const c of kids) {
-    const pad = 8 + depth * 14;
+    const pad = 8 + depth * 11;
     if (c.dir) {
       const agg = aggChanges(c);
-      out += `<div class="tree-folder" style="padding-left:${pad}px"><span class="chev">▾</span><span class="fname">${esc(c.name)}/</span>${agg.changed ? statHtml(agg.added, agg.removed) : ""}</div>`;
+      out += `<div class="tree-folder" role="button" tabindex="0" aria-expanded="true" style="padding-left:${pad}px"><span class="chev" aria-hidden="true">▾</span><span class="fname">${esc(c.name)}/</span>${agg.changed ? statHtml(agg.added, agg.removed) : ""}</div>`;
       out += `<div class="tree-children">${renderTreeChildren(c, depth + 1)}</div>`;
     } else {
       const f = c.file;
       const stat = f.status !== "unchanged" ? statHtml(f.added, f.removed) : "";
-      out += `<div class="file-row${f.status === "unchanged" ? " unchanged" : ""}" data-path="${esc(f.path)}" style="padding-left:${pad}px">${fileBadge(f.status)}<span class="fname" title="${esc(f.path)}">${esc(c.name)}</span>${stat}</div>`;
+      out += `<div class="file-row${f.status === "unchanged" ? " unchanged" : ""}" role="button" tabindex="0" data-path="${esc(f.path)}" style="padding-left:${pad}px">${fileBadge(f.status)}<span class="fname" title="${esc(f.path)}">${esc(c.name)}</span>${stat}</div>`;
     }
   }
   return out;
 }
 
+// The file summary line, with a toggle to hide/show unchanged files so the
+// signal (what changed) isn't buried under every untouched source file.
+function renderFileSummary() {
+  const fs = $("#file-summary"); if (!fs) return;
+  const total = cmp.files.length;
+  const changed = cmp.files.filter((f) => f.status !== "unchanged").length;
+  const label = cmp.showUnchanged ? "Changed only" : "Show all";
+  fs.innerHTML = `<span>${changed} changed / ${total} ${total === 1 ? "file" : "files"}</span>` +
+    (changed < total ? `<button type="button" class="fs-toggle" id="fs-toggle" aria-pressed="${cmp.showUnchanged ? "true" : "false"}">${label}</button>` : "");
+  const btn = $("#fs-toggle");
+  if (btn) btn.onclick = () => { cmp.showUnchanged = !cmp.showUnchanged; renderFileSummary(); renderFileList(cmp.files); };
+}
+
 function renderFileList(files) {
   const list = $("#file-list"); list.innerHTML = "";
-  if (!files.length) { list.innerHTML = '<div class="empty">no files</div>'; return; }
-  list.innerHTML = renderTreeChildren(buildTree(files), 0);
+  const changed = files.filter((f) => f.status !== "unchanged");
+  const use = cmp.showUnchanged ? files : (changed.length ? changed : files);
+  if (!use.length) { list.innerHTML = '<div class="empty">no files</div>'; return; }
+  list.innerHTML = renderTreeChildren(buildTree(use), 0);
   list.querySelectorAll(".tree-folder").forEach((fd) => {
-    fd.onclick = () => {
+    const toggle = () => {
       fd.classList.toggle("collapsed");
+      const collapsed = fd.classList.contains("collapsed");
+      fd.setAttribute("aria-expanded", collapsed ? "false" : "true");
       const kids = fd.nextElementSibling;
-      if (kids && kids.classList.contains("tree-children")) kids.hidden = fd.classList.contains("collapsed");
+      if (kids && kids.classList.contains("tree-children")) kids.hidden = collapsed;
     };
+    fd.onclick = toggle;
+    fd.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
   });
   list.querySelectorAll(".file-row[data-path]").forEach((r) => {
     r.onclick = () => openFile(r.dataset.path);
+    r.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFile(r.dataset.path); } };
     if (cmp.path) r.classList.toggle("active", r.dataset.path === cmp.path);
   });
 }
@@ -731,7 +762,7 @@ function highlighterFor(path) {
   return escCode;
 }
 
-function diffView() { try { return localStorage.getItem("crates_diff_diffview") === "split" ? "split" : "unified"; } catch (_) { return "unified"; } }
+function diffView() { try { if (window.innerWidth < 700) return "unified"; return localStorage.getItem("crates_diff_diffview") === "split" ? "split" : "unified"; } catch (_) { return "unified"; } }
 function setDiffView(m) { try { localStorage.setItem("crates_diff_diffview", m); } catch (_) {} if (cmp.path) openFile(cmp.path); }
 
 function renderDiff(d) {
@@ -891,7 +922,7 @@ function openLineComposer(rowEl, anchor) {
 
 function contentSearch() {
   const q = $("#content-search").value.trim();
-  if (!q) { renderFileList(cmp.files); $("#file-summary").innerHTML = `${cmp.files.length} files`; return; }
+  if (!q) { renderFileList(cmp.files); renderFileSummary(); return; }
   const results = computeContentSearch(cmp.aMap, cmp.bMap, q);
   $("#file-summary").innerHTML = `${results.length} file(s) contain <b>${esc(q)}</b>`;
   const list = $("#file-list"); list.innerHTML = "";
@@ -899,8 +930,11 @@ function contentSearch() {
   const ql = q.toLowerCase();
   for (const r of results) {
     const row = el("div", "file-row");
+    row.setAttribute("role", "button");
+    row.tabIndex = 0;
     row.innerHTML = `<span class="path" title="${esc(r.path)}">${esc(r.path)}</span><span class="stat">${r.count}×</span>`;
     row.onclick = () => openFile(r.path);
+    row.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFile(r.path); } };
     list.appendChild(row);
     for (const m of r.lines.slice(0, 4)) {
       const hl = esc(m.text).replace(new RegExp("(" + ql.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"), "<b>$1</b>");
@@ -914,7 +948,12 @@ function contentSearch() {
 /* ---------------- tabs ---------------- */
 function switchTab(name) {
   cmp.tab = name;
-  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".tab").forEach((t) => {
+    const on = t.dataset.tab === name;
+    t.classList.toggle("active", on);
+    t.setAttribute("aria-selected", on ? "true" : "false");
+    t.tabIndex = on ? 0 : -1;
+  });
   document.querySelectorAll(".tabpane").forEach((p) => p.classList.toggle("active", p.id === "pane-" + name));
   if (name === "github" && cmp.aMap && cmp.githubLoaded !== cmp.from + ".." + cmp.to) loadGithub();
 }
@@ -1193,10 +1232,10 @@ function renderAbout() {
     <a class="back" href="#/">← home</a>
     <h2>About</h2>
 
-    I built this site to help me see what changed between versions of Rust crates I use, and to help me decide whether to upgrade. I hope it helps you too. This is inspired by <a href="https://diff.rs" target="_blank" rel="noopener">diff.rs</a>, I wanted to build a new site, because, diff.rs looks unmaintained and does not work for many crates. 
+    <p>I built this site to help me see what changed between versions of Rust crates I use, and to help me decide whether to upgrade. I hope it helps you too. This is inspired by <a href="https://diff.rs" target="_blank" rel="noopener">diff.rs</a>, I wanted to build a new site, because, diff.rs looks unmaintained and does not work for many crates.</p>
     <p><b>crates_diff</b> shows <b>full-source diffs between any two versions of a Rust
     crate</b>. It's a free, open-source, browser-based tool for <a href="https://crates.io" target="_blank" rel="noopener">crates.io</a>
-    packages. 
+    packages.
 
     <p>Everything runs in your browser. You can:</p>
     <ul class="about-list">
